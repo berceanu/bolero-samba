@@ -41,6 +41,18 @@ pub struct AnomalyReport {
     pub anomalies: Vec<Anomaly>,
 }
 
+#[derive(Debug, Clone)]
+pub struct BadFile {
+    pub relative_path: String,
+    pub size: u64,
+    pub reason: String,
+}
+
+#[derive(Debug)]
+pub struct BadFilesReport {
+    pub files_by_folder: Vec<(String, Vec<BadFile>)>, // (folder_name, bad_files)
+}
+
 #[must_use]
 pub fn calculate_integrity_stats(
     files: &[FileEntry],
@@ -384,3 +396,52 @@ pub fn print_anomalies(report: &Option<AnomalyReport>) {
         }
     }
 }
+
+#[must_use]
+pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesReport> {
+    let bad_files: Vec<&FileEntry> = files.iter().filter(|f| !f.is_valid).collect();
+    
+    if bad_files.is_empty() {
+        return None;
+    }
+
+    // Group by parent_dir (folder)
+    let mut by_folder: HashMap<String, Vec<BadFile>> = HashMap::new();
+    
+    for file in bad_files.iter().take(30) {  // Limit to 30
+        let relative_path = format!("Line {}/{}/{}", line_id, file.parent_dir, file.name);
+        let reason = file.invalid_reason.clone().unwrap_or_else(|| "Unknown error".to_string());
+        
+        let bad_file = BadFile {
+            relative_path,
+            size: file.size,
+            reason,
+        };
+        
+        by_folder.entry(file.parent_dir.clone()).or_default().push(bad_file);
+    }
+
+    // Convert to sorted vec
+    let mut files_by_folder: Vec<(String, Vec<BadFile>)> = by_folder.into_iter().collect();
+    files_by_folder.sort_by(|a, b| a.0.cmp(&b.0));
+
+    Some(BadFilesReport {
+        files_by_folder,
+    })
+}
+
+pub fn print_bad_files(report: &Option<BadFilesReport>) {
+    if let Some(r) = report {
+        println!("\n{}", "=== Bad ZIP Files ===".cyan());
+        
+        for (folder, files) in &r.files_by_folder {
+            println!("\n{}", folder.yellow());
+            for file in files {
+                println!("  {} {}", "⚠️".yellow(), file.relative_path);
+                println!("     Size: {}", human_bytes::human_bytes(file.size as f64));
+                println!("     Reason: {}", file.reason.red());
+            }
+        }
+    }
+}
+

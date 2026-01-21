@@ -1,6 +1,6 @@
 use crate::estimates::EstimatesReport;
 use crate::gap_analysis::GapReport;
-use crate::stats::{AnomalyReport, IntegrityStats};
+use crate::stats::{AnomalyReport, BadFilesReport, IntegrityStats};
 use chrono::Local;
 
 pub struct AuditReport {
@@ -14,6 +14,7 @@ pub struct AuditReport {
     pub gap_report: Option<GapReport>,
     pub estimates_report: Option<EstimatesReport>,
     pub anomaly_report: Option<AnomalyReport>,
+    pub bad_files_report: Option<BadFilesReport>,
 }
 
 #[must_use]
@@ -101,17 +102,20 @@ pub fn render_full_report(report: &AuditReport) -> String {
     // Active Transfer Detection
     html.push_str(&render_transfer_status(report));
 
+    // Transfer Estimates
+    html.push_str(&render_estimates_section(report));
+
     // File Integrity & Heuristics
     html.push_str(&render_integrity_section(report));
 
     // Gap Analysis
     html.push_str(&render_gap_section(report));
 
-    // Transfer Estimates
-    html.push_str(&render_estimates_section(report));
-
     // Directory Size Anomalies
     html.push_str(&render_anomalies_section(report));
+
+    // Bad ZIP Files
+    html.push_str(&render_bad_files_section(report));
 
     html
 }
@@ -393,6 +397,40 @@ fn render_anomalies_section(report: &AuditReport) -> String {
     }
 
     html.push_str("</div>\n");
+    html
+}
+
+fn render_bad_files_section(report: &AuditReport) -> String {
+    let mut html = String::new();
+
+    if let Some(bad_report) = &report.bad_files_report {
+        html.push_str(
+            r#"<div class="section"><h3 class="section-title">Bad ZIP Files</h3>"#,
+        );
+
+        for (folder, files) in &bad_report.files_by_folder {
+            html.push_str(&format!(
+                r#"<h4 style="color: #ffd700; margin: 15px 0 10px 0;">{}</h4>"#,
+                escape_html(folder)
+            ));
+
+            for file in files {
+                html.push_str(&format!(
+                    r#"<div style="margin: 10px 0 10px 20px;">
+<p style="margin: 3px 0;"><strong>⚠️</strong> {}</p>
+<p style="margin: 3px 0 3px 30px; font-size: 0.9em;">Size: {}</p>
+<p style="margin: 3px 0 3px 30px; font-size: 0.9em; color: #ff6b6b;">Reason: {}</p>
+</div>"#,
+                    escape_html(&file.relative_path),
+                    human_bytes::human_bytes(file.size as f64),
+                    escape_html(&file.reason)
+                ));
+            }
+        }
+
+        html.push_str("</div>\n");
+    }
+
     html
 }
 

@@ -113,6 +113,7 @@ mod tests {
             name: "dummy.zip".to_string(),
             size: 0,
             is_valid: true,
+            invalid_reason: None,
             modified: Utc::now().with_timezone(&Local),
             parent_dir: format!("Archive_Beam_{}_{}", line_id, date_str),
         }

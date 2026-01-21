@@ -211,6 +211,7 @@ fn main() {
         &args.base_dir,
     );
     let anomalies_report = stats::calculate_anomalies(&files);
+    let bad_files_report = stats::collect_bad_files(&files, &line_id);
 
     // Output based on mode
     if args.html {
@@ -225,6 +226,7 @@ fn main() {
             gap_report: Some(gap_report),
             estimates_report,
             anomaly_report: anomalies_report,
+            bad_files_report,
         };
 
         println!("{}", html_renderer::render_full_report(&report));
@@ -268,16 +270,19 @@ fn main() {
             }
         }
 
+        estimates::print_estimates(&estimates_report);
+
         println!("\n{}", "=== File Integrity & Heuristics ===".cyan());
         stats::print_integrity_table(&integrity_stats);
 
         println!("\n{}", "=== Missing Daily Archives ===".cyan());
         gap_analysis::analyze_gaps(&files, &line_id);
 
-        estimates::print_estimates(&estimates_report);
-
         println!("\n{}", "=== Directory Size Anomalies ===".cyan());
         stats::print_anomalies(&anomalies_report);
+
+        let bad_files_report = stats::collect_bad_files(&files, &line_id);
+        stats::print_bad_files(&bad_files_report);
 
         println!("\n{}", "=== Audit Complete ===".cyan());
     }
@@ -428,6 +433,7 @@ fn collect_audit_data(line_id: &str, base_dir: &str, silent: bool) -> html_rende
     let estimates_report =
         estimates::calculate_estimates(&search_dir, &files, line_id, size_t2, speed_bps, base_dir);
     let anomalies_report = stats::calculate_anomalies(&files);
+    let bad_files_report = stats::collect_bad_files(&files, line_id);
 
     // Return AuditReport
     html_renderer::AuditReport {
@@ -441,6 +447,7 @@ fn collect_audit_data(line_id: &str, base_dir: &str, silent: bool) -> html_rende
         gap_report: Some(gap_report),
         estimates_report,
         anomaly_report: anomalies_report,
+        bad_files_report,
     }
 }
 

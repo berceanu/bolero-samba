@@ -63,7 +63,7 @@ pub fn scan_files(path: &str) -> Vec<FileEntry> {
                 );
 
             // Integrity check
-            let is_valid = is_zip_valid(p);
+            let (is_valid, invalid_reason) = is_zip_valid(p);
 
             // Use UNIX_EPOCH as fallback instead of now() to avoid falsely marking
             // files as "recent" when we can't read their modification time
@@ -74,6 +74,7 @@ pub fn scan_files(path: &str) -> Vec<FileEntry> {
                 name,
                 size,
                 is_valid,
+                invalid_reason,
                 modified,
                 parent_dir: parent,
             }
@@ -84,31 +85,31 @@ pub fn scan_files(path: &str) -> Vec<FileEntry> {
     results
 }
 
-fn is_zip_valid(path: &Path) -> bool {
+fn is_zip_valid(path: &Path) -> (bool, Option<String>) {
     let mut file = match File::open(path) {
         Ok(f) => f,
-        Err(_) => return false,
+        Err(_) => return (false, Some("Cannot open file".to_string())),
     };
 
     // Quick check: valid zip must be at least 22 bytes (EOCD size)
     let len = match file.metadata() {
         Ok(m) => m.len(),
-        Err(_) => return false,
+        Err(_) => return (false, Some("Cannot read file metadata".to_string())),
     };
     if len < 22 {
-        return false;
+        return (false, Some(format!("File too small ({} bytes, minimum 22 bytes required)", len)));
     }
 
     // Search last 64KB + 22 bytes for EOCD signature (0x06054b50)
     let search_len = std::cmp::min(len, 65535 + 22) as i64;
 
     if file.seek(SeekFrom::End(-search_len)).is_err() {
-        return false;
+        return (false, Some("Cannot seek to end of file".to_string()));
     }
 
     let mut buffer = Vec::with_capacity(search_len as usize);
     if file.read_to_end(&mut buffer).is_err() {
-        return false;
+        return (false, Some("Cannot read file contents".to_string()));
     }
 
     // Search for signature: 0x06054b50 => [0x50, 0x4b, 0x05, 0x06]
@@ -120,11 +121,11 @@ fn is_zip_valid(path: &Path) -> bool {
             && buffer[i + 2] == signature[2]
             && buffer[i + 3] == signature[3]
         {
-            return true;
+            return (true, None);
         }
     }
 
-    false
+    (false, Some("Missing ZIP signature (corrupted or incomplete transfer)".to_string()))
 }
 
 #[must_use]
