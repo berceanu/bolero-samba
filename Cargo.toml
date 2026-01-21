@@ -1,0 +1,13 @@
+[package]
+name = "beam_audit"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.43"
+clap = { version = "4.5.54", features = ["derive"] }
+colored = "3.1.1"
+comfy-table = "7.2.2"
+human_bytes = "0.4.3"
+walkdir = "2.5"
+lettre = { version = "0.11.19", default-features = false, features = ["builder", "hostname", "file-transport", "smtp-transport", "rustls-tls"] }
