@@ -9,6 +9,8 @@ pub struct EstimatesReport {
     pub current_copy_date: NaiveDate,
     pub daily_average_gib: u64,
     pub weekdays_remaining: u32,
+    pub weekdays_completed: u32,
+    pub total_weekdays: u32,
     pub estimated_data_left_tib: f64,
     pub free_space_tib: f64,
     pub disk_status_ok: bool,
@@ -23,9 +25,11 @@ pub fn calculate_estimates(
     line_id: &str,
     total_bytes: u64,
     speed_bps: u64,
+    base_dir: &str,
 ) -> Option<EstimatesReport> {
     // 1. Parse Config
-    let (_start_date, end_date) = parse_config("Transfer.ps1")?;
+    let config_path = format!("{}/Transfer.ps1", base_dir);
+    let (start_date, end_date) = parse_config(&config_path)?;
 
     // 2. Identify Current Copy Date
     let current_copy_date = get_current_copy_date(files, line_id, search_dir);
@@ -41,7 +45,29 @@ pub fn calculate_estimates(
     };
     let daily_average_gib = avg_bytes_per_day / 1_024 / 1_024 / 1_024;
 
-    // 4. Calculate Remaining
+    // 4. Calculate total weekdays from start to end
+    let mut total_weekdays = 0;
+    let mut iter_date = start_date;
+    while iter_date <= end_date {
+        let dow = iter_date.weekday().number_from_monday();
+        if dow <= 5 {
+            total_weekdays += 1;
+        }
+        iter_date = iter_date.succ_opt().unwrap_or(end_date.succ_opt().unwrap());
+    }
+
+    // 5. Calculate weekdays completed (from start to current)
+    let mut weekdays_completed = 0;
+    let mut iter_date = start_date;
+    while iter_date < current_copy_date {
+        let dow = iter_date.weekday().number_from_monday();
+        if dow <= 5 {
+            weekdays_completed += 1;
+        }
+        iter_date = iter_date.succ_opt().unwrap_or(current_copy_date);
+    }
+
+    // 6. Calculate Remaining
     let mut weekdays_remaining = 0;
     if let Some(mut iter_date) = current_copy_date.succ_opt() {
         while iter_date <= end_date {
@@ -53,9 +79,11 @@ pub fn calculate_estimates(
         }
     }
 
-    if weekdays_remaining == 0 {
-        return None; // Transfer complete
-    }
+    // Even if weekdays_remaining is 0, we still want to show progress
+    // So let's not return None - just set estimates to 0
+    // if weekdays_remaining == 0 {
+    //     return None; // Transfer complete
+    // }
 
     let total_remaining_bytes = u64::from(weekdays_remaining) * avg_bytes_per_day;
     let estimated_data_left_tib =
@@ -78,6 +106,8 @@ pub fn calculate_estimates(
         current_copy_date,
         daily_average_gib,
         weekdays_remaining,
+        weekdays_completed,
+        total_weekdays,
         estimated_data_left_tib,
         free_space_tib,
         disk_status_ok,
@@ -90,15 +120,9 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
     println!("\n{}", "=== Transfer Estimates ===".cyan());
 
     if let Some(r) = report {
-        // Calculate progress: assume we're counting down from some starting point
-        // Use estimated days remaining vs estimated total time
-        let progress_pct = if let (Some(days_eta), wdays_rem) = (r.estimated_days_eta, r.weekdays_remaining) {
-            if days_eta > 0 {
-                let completed = days_eta.saturating_sub(wdays_rem as u64);
-                ((completed as f64 / days_eta as f64 * 100.0).min(100.0)) as u8
-            } else {
-                100
-            }
+        // Calculate progress based on completed weekdays vs total weekdays
+        let progress_pct = if r.total_weekdays > 0 {
+            ((r.weekdays_completed as f64 / r.total_weekdays as f64 * 100.0).min(100.0)) as u8
         } else {
             0
         };

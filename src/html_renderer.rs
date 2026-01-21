@@ -301,14 +301,9 @@ fn render_estimates_section(report: &AuditReport) -> String {
     html.push_str(r#"<div class="section"><h3 class="section-title">Transfer Estimates</h3>"#);
 
     if let Some(est) = &report.estimates_report {
-        // Calculate progress percentage
-        let progress_pct = if let (Some(days_eta), wdays_rem) = (est.estimated_days_eta, est.weekdays_remaining) {
-            if days_eta > 0 {
-                let completed = days_eta.saturating_sub(wdays_rem as u64);
-                ((completed as f64 / days_eta as f64 * 100.0).min(100.0)) as u8
-            } else {
-                100
-            }
+        // Calculate progress percentage based on completed weekdays
+        let progress_pct = if est.total_weekdays > 0 {
+            ((est.weekdays_completed as f64 / est.total_weekdays as f64 * 100.0).min(100.0)) as u8
         } else {
             0
         };

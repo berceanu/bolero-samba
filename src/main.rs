@@ -160,7 +160,7 @@ fn main() {
     let integrity_stats = stats::calculate_integrity_stats(&files, tiny_threshold);
     let gap_report = gap_analysis::find_gaps(&files, &line_id);
     let estimates_report =
-        estimates::calculate_estimates(&search_dir, &files, &line_id, size_t2, speed_bps);
+        estimates::calculate_estimates(&search_dir, &files, &line_id, size_t2, speed_bps, &args.base_dir);
     let anomalies_report = stats::calculate_anomalies(&files);
 
     // Output based on mode
@@ -376,7 +376,7 @@ fn collect_audit_data(line_id: &str, base_dir: &str, silent: bool) -> html_rende
     let integrity_stats = stats::calculate_integrity_stats(&files, tiny_threshold);
     let gap_report = gap_analysis::find_gaps(&files, line_id);
     let estimates_report =
-        estimates::calculate_estimates(&search_dir, &files, line_id, size_t2, speed_bps);
+        estimates::calculate_estimates(&search_dir, &files, line_id, size_t2, speed_bps, base_dir);
     let anomalies_report = stats::calculate_anomalies(&files);
 
     html_renderer::AuditReport {
