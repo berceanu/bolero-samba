@@ -354,7 +354,7 @@ fn render_anomalies_section(report: &AuditReport) -> String {
                     "yellow"
                 };
                 html.push_str(&format!(
-                    r#"<tr><td>{}</td><td class="{}">{}</td><td>({})</td></tr>"#,
+                    r#"<tr><td>⚠️ {}</td><td class="{}">{}</td><td>({})</td></tr>"#,
                     escape_html(&a.name),
                     color_class,
                     human_bytes::human_bytes(a.size as f64),

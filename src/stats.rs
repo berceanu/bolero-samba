@@ -353,10 +353,10 @@ pub fn print_anomalies(report: &Option<AnomalyReport>) {
             // We use println! directly, can't easily pass Color enum to format! macro without crate
             // Let's just use colored crate
             if a.category == "Too Small" {
-                println!("{:<35} | {:<10} | ({})", a.name, size_str.red(), a.category);
+                println!("⚠️ {:<35} | {:<10} | ({})", a.name, size_str.red(), a.category);
             } else {
                 println!(
-                    "{:<35} | {:<10} | ({})",
+                    "⚠️ {:<35} | {:<10} | ({})",
                     a.name,
                     size_str.yellow(),
                     a.category
