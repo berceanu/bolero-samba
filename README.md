@@ -36,6 +36,12 @@ cargo build --release --target x86_64-unknown-linux-musl
 
 # Full dashboard (both lines)
 ./target/release/beam_audit --dashboard /var/www/html/index.html
+
+# Custom base directory
+./target/release/beam_audit --base-dir /custom/path --dashboard dashboard.html
+
+# Test email configuration
+./target/release/beam_audit --test-email
 ```
 
 ## Deployment
@@ -48,13 +54,25 @@ cargo build --release --target x86_64-unknown-linux-musl
 
 ### Email Configuration
 
-Create `.email_config` in working directory:
+Create `.email_config` in the base directory (default: `/data/storage/samba_share_cluster/`):
 
 ```bash
 SMTP_USER=alerts@example.com
 SMTP_PASS=your-app-password
 RECIPIENT_EMAIL=team@example.com
 ```
+
+**Gmail Setup**:
+1. Enable 2-factor authentication
+2. Generate App Password at: https://myaccount.google.com/apppasswords
+3. Use the 16-character app password (NOT your regular password)
+
+**Test Configuration**:
+```bash
+./beam_audit --base-dir /path/to/data --test-email
+```
+
+The system automatically sends alerts when transfer state changes (IDLE ↔ ACTIVE).
 
 ## Architecture
 

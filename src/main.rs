@@ -35,10 +35,20 @@ struct Args {
     /// Base directory containing Line A/B folders
     #[arg(long, short = 'b', default_value = "/data/storage/samba_share_cluster")]
     base_dir: String,
+
+    /// Test email configuration by sending a test email
+    #[arg(long)]
+    test_email: bool,
 }
 
 fn main() {
     let args = Args::parse();
+
+    // Test email mode
+    if args.test_email {
+        test_email_config(&args.base_dir);
+        return;
+    }
 
     // Dashboard mode - generate both lines
     if let Some(output_file) = &args.dashboard {
@@ -397,3 +407,46 @@ fn collect_audit_data(line_id: &str, base_dir: &str, silent: bool) -> html_rende
         anomaly_report: anomalies_report,
     }
 }
+
+fn test_email_config(base_dir: &str) {
+    println!("Testing email configuration...");
+    
+    // Try to load the email config
+    let config_path = format!("{}/.email_config", base_dir);
+    println!("Looking for config at: {}", config_path);
+    
+    // Change to base_dir so relative path works
+    if let Err(e) = std::env::set_current_dir(base_dir) {
+        eprintln!("Error: Could not change to directory {}: {}", base_dir, e);
+        std::process::exit(1);
+    }
+    
+    let config = match email::EmailConfig::load() {
+        Some(cfg) => {
+            println!("✓ Email config loaded successfully");
+            println!("  SMTP User: {}", cfg.smtp_user);
+            println!("  Recipient: {}", cfg.recipient);
+            cfg
+        }
+        None => {
+            eprintln!("✗ Failed to load email config from .email_config");
+            eprintln!("  Make sure the file exists at: {}", config_path);
+            eprintln!("  Expected format:");
+            eprintln!("    SMTP_USER=your-email@gmail.com");
+            eprintln!("    SMTP_PASS=your-app-password");
+            eprintln!("    RECIPIENT_EMAIL=recipient@example.com");
+            std::process::exit(1);
+        }
+    };
+    
+    println!("\nSending test email...");
+    let subject = "[Beam Audit] Test Email";
+    let body = format!(
+        "This is a test email from beam_audit.\n\nSent at: {}\n\nIf you received this, email alerts are working correctly!",
+        Local::now().format("%Y-%m-%d %H:%M:%S")
+    );
+    
+    email::send_alert(&subject, &body, &config);
+    println!("\nTest complete. Check your inbox at: {}", config.recipient);
+}
+
