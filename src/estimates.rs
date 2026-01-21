@@ -151,10 +151,7 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
 }
 
 fn parse_config(path: &str) -> Option<(NaiveDate, NaiveDate)> {
-    // Try current dir, parent dir, and absolute known path
     let content = fs::read_to_string(path)
-        .or_else(|_| fs::read_to_string(format!("../{path}")))
-        .or_else(|_| fs::read_to_string(format!("/data/storage/samba_share_cluster/{path}")))
         .ok()?;
 
     let mut start = None;

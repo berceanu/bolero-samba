@@ -31,6 +31,10 @@ struct Args {
     /// Generate full dashboard HTML for both lines (writes to file)
     #[arg(long, short = 'd', value_name = "FILE")]
     dashboard: Option<String>,
+
+    /// Base directory containing Line A/B folders
+    #[arg(long, short = 'b', default_value = "/data/storage/samba_share_cluster")]
+    base_dir: String,
 }
 
 fn main() {
@@ -38,7 +42,7 @@ fn main() {
 
     // Dashboard mode - generate both lines
     if let Some(output_file) = &args.dashboard {
-        generate_dashboard(output_file);
+        generate_dashboard(output_file, &args.base_dir);
         return;
     }
 
@@ -49,7 +53,7 @@ fn main() {
         std::process::exit(1);
     }
 
-    let search_dir = format!("/mnt/storage/samba_share_cluster/Line {line_id}");
+    let search_dir = format!("{}/Line {}", args.base_dir, line_id);
     let tiny_threshold = 1000;
 
     // Progress messages (only in terminal mode)
@@ -86,8 +90,8 @@ fn main() {
     let speed_mib = speed_bps as f64 / 1_024.0 / 1_024.0;
 
     // State Logic
-    let state_file = format!(".transfer_state_{line_id}");
-    let since_file = format!(".transfer_since_{line_id}");
+    let state_file = format!("{}/.transfer_state_{}", args.base_dir, line_id);
+    let since_file = format!("{}/.transfer_since_{}", args.base_dir, line_id);
 
     let current_state = if speed_bps > 0 { "ACTIVE" } else { "IDLE" };
     let prev_state = fs::read_to_string(&state_file).unwrap_or_else(|_| "IDLE".to_string());
@@ -231,7 +235,7 @@ fn main() {
     }
 }
 
-fn generate_dashboard(output_file: &str) {
+fn generate_dashboard(output_file: &str, base_dir: &str) {
     // Acquire lock to prevent concurrent runs
     let lockfile = "/tmp/beam_audit_dashboard.lock";
     let _lock = match acquire_lock(lockfile) {
@@ -247,8 +251,8 @@ fn generate_dashboard(output_file: &str) {
     // Generate reports for both lines IN PARALLEL
     let result = std::panic::catch_unwind(|| {
         thread::scope(|s| {
-            let handle_a = s.spawn(|| collect_audit_data("A", true));
-            let handle_b = s.spawn(|| collect_audit_data("B", true));
+            let handle_a = s.spawn(|| collect_audit_data("A", base_dir, true));
+            let handle_b = s.spawn(|| collect_audit_data("B", base_dir, true));
 
             (handle_a.join().unwrap(), handle_b.join().unwrap())
         })
@@ -297,8 +301,8 @@ fn acquire_lock(lockfile: &str) -> Result<fs::File, String> {
     }
 }
 
-fn collect_audit_data(line_id: &str, silent: bool) -> html_renderer::AuditReport {
-    let search_dir = format!("./Line {line_id}");
+fn collect_audit_data(line_id: &str, base_dir: &str, silent: bool) -> html_renderer::AuditReport {
+    let search_dir = format!("{}/Line {}", base_dir, line_id);
     let tiny_threshold = 1000;
 
     if !silent {
@@ -321,8 +325,8 @@ fn collect_audit_data(line_id: &str, silent: bool) -> html_renderer::AuditReport
     let delta_bytes = size_t2.saturating_sub(size_t1);
     let speed_bps = delta_bytes / 10;
 
-    let state_file = format!(".transfer_state_{line_id}");
-    let since_file = format!(".transfer_since_{line_id}");
+    let state_file = format!("{}/.transfer_state_{}", base_dir, line_id);
+    let since_file = format!("{}/.transfer_since_{}", base_dir, line_id);
 
     let current_state = if speed_bps > 0 { "ACTIVE" } else { "IDLE" };
     let prev_state = fs::read_to_string(&state_file).unwrap_or_else(|_| "IDLE".to_string());
