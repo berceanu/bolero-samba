@@ -42,6 +42,9 @@ cargo build --release --target x86_64-unknown-linux-musl
 
 # Test email configuration
 ./target/release/beam_audit --test-email
+
+# Custom alert threshold (default: 20 minutes)
+./target/release/beam_audit --alert-threshold 15  # Alert after 15 min of stable state
 ```
 
 ## Deployment
@@ -75,7 +78,17 @@ RECIPIENT_EMAIL=team@example.com
 ./beam_audit --base-dir /path/to/data --test-email
 ```
 
-The system automatically sends alerts when transfer state changes (IDLE ↔ ACTIVE).
+**Email Alert Behavior**:
+- Alerts sent only when state persists for `--alert-threshold` minutes (default: 20)
+- Prevents spam from brief network hiccups
+- All state changes logged to `.transfer_interruptions_{A|B}` for diagnostics
+
+**Interruption Log Format** (CSV):
+```
+2026-01-21 14:32:15,ACTIVE,IDLE,0.0
+2026-01-21 14:35:42,IDLE,ACTIVE,45.3
+```
+This log helps analyze network stability patterns and calculate uptime statistics.
 
 ## Architecture
 

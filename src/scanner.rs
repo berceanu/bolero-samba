@@ -147,7 +147,7 @@ pub fn get_recent_files(path: &str, minutes: i64) -> Vec<String> {
                 } else {
                     &full_path
                 };
-                
+
                 Some(format!(
                     "  - {} ({}) at {}",
                     display_path,

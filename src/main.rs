@@ -39,6 +39,10 @@ struct Args {
     /// Test email configuration by sending a test email
     #[arg(long)]
     test_email: bool,
+
+    /// Minimum minutes a state must persist before sending email alert (default: 20)
+    #[arg(long, default_value_t = 20)]
+    alert_threshold: u64,
 }
 
 fn main() {
@@ -127,39 +131,71 @@ fn main() {
     };
 
     // Alerting (background, runs regardless of output mode)
-    if current_state == prev_state {
-        fs::write(&state_file, current_state).ok();
-    } else {
+    let change_time_file = format!("{}/.transfer_state_changed_{}", args.base_dir, line_id);
+
+    if current_state != prev_state {
+        // State just changed - log it for statistics
+        log_state_change(
+            &args.base_dir,
+            &line_id,
+            prev_state,
+            current_state,
+            speed_mib,
+        );
+
         if !args.html {
             println!(
                 "\n{}",
                 format!("-- State Change Detected ({prev_state} -> {current_state}) --").cyan()
             );
         }
-        fs::write(&state_file, current_state).ok();
 
-        if let Some(cfg) = email::EmailConfig::load() {
-            let subject = format!(
-                "[Beam Alert] Transfer {} on Line {}",
-                if current_state == "ACTIVE" {
-                    "RESUMED"
-                } else {
-                    "STOPPED"
-                },
-                line_id
-            );
-            let body = format!(
-                "The transfer on Line {} has {}.\n\nCurrent Speed: {:.1} MiB/s\nTime: {}",
-                line_id,
-                if current_state == "ACTIVE" {
-                    "resumed"
-                } else {
-                    "stopped"
-                },
-                speed_mib,
-                Local::now()
-            );
-            email::send_alert(&subject, &body, &cfg);
+        // Record timestamp of state change
+        let now_timestamp = Local::now().timestamp();
+        fs::write(&change_time_file, now_timestamp.to_string()).ok();
+        fs::write(&state_file, current_state).ok();
+    } else {
+        // State unchanged - just update state file
+        fs::write(&state_file, current_state).ok();
+    }
+
+    // Check if we should send alert (state changed AND been stable >= threshold)
+    if current_state != prev_state
+        && let Ok(content) = fs::read_to_string(&change_time_file)
+        && let Ok(change_timestamp) = content.trim().parse::<i64>()
+    {
+        let now = Local::now().timestamp();
+        let minutes_elapsed = (now - change_timestamp) / 60;
+
+        if minutes_elapsed >= args.alert_threshold as i64 {
+            // State has persisted long enough - send alert
+            if let Some(cfg) = email::EmailConfig::load() {
+                let subject = format!(
+                    "[Beam Alert] Transfer {} on Line {}",
+                    if current_state == "ACTIVE" {
+                        "RESUMED"
+                    } else {
+                        "STOPPED"
+                    },
+                    line_id
+                );
+                let body = format!(
+                    "The transfer on Line {} has {}.\n\nCurrent Speed: {:.1} MiB/s\nState persisted for: {} minutes\nTime: {}",
+                    line_id,
+                    if current_state == "ACTIVE" {
+                        "resumed"
+                    } else {
+                        "stopped"
+                    },
+                    speed_mib,
+                    minutes_elapsed,
+                    Local::now()
+                );
+                email::send_alert(&subject, &body, &cfg);
+            }
+
+            // Clear timestamp after alerting
+            fs::remove_file(&change_time_file).ok();
         }
     }
 
@@ -408,19 +444,38 @@ fn collect_audit_data(line_id: &str, base_dir: &str, silent: bool) -> html_rende
     }
 }
 
+fn log_state_change(
+    base_dir: &str,
+    line_id: &str,
+    old_state: &str,
+    new_state: &str,
+    speed_mbps: f64,
+) {
+    let log_file = format!("{}/.transfer_interruptions_{}", base_dir, line_id);
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+    let log_entry = format!(
+        "{},{},{},{:.1}\n",
+        timestamp, old_state, new_state, speed_mbps
+    );
+
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_file) {
+        let _ = file.write_all(log_entry.as_bytes());
+    }
+}
+
 fn test_email_config(base_dir: &str) {
     println!("Testing email configuration...");
-    
+
     // Try to load the email config
     let config_path = format!("{}/.email_config", base_dir);
     println!("Looking for config at: {}", config_path);
-    
+
     // Change to base_dir so relative path works
     if let Err(e) = std::env::set_current_dir(base_dir) {
         eprintln!("Error: Could not change to directory {}: {}", base_dir, e);
         std::process::exit(1);
     }
-    
+
     let config = match email::EmailConfig::load() {
         Some(cfg) => {
             println!("✓ Email config loaded successfully");
@@ -438,15 +493,14 @@ fn test_email_config(base_dir: &str) {
             std::process::exit(1);
         }
     };
-    
+
     println!("\nSending test email...");
     let subject = "[Beam Audit] Test Email";
     let body = format!(
         "This is a test email from beam_audit.\n\nSent at: {}\n\nIf you received this, email alerts are working correctly!",
         Local::now().format("%Y-%m-%d %H:%M:%S")
     );
-    
-    email::send_alert(&subject, &body, &config);
+
+    email::send_alert(subject, &body, &config);
     println!("\nTest complete. Check your inbox at: {}", config.recipient);
 }
-
