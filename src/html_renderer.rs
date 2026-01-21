@@ -408,6 +408,20 @@ fn render_bad_files_section(report: &AuditReport) -> String {
             r#"<div class="section"><h3 class="section-title">Bad ZIP Files</h3>"#,
         );
 
+        let displayed_count = bad_report.files_by_folder.iter().map(|(_, files)| files.len()).sum::<usize>();
+        
+        if bad_report.total_count > displayed_count {
+            html.push_str(&format!(
+                r#"<p>Found {} bad ZIP files, here are the first {}:</p>"#,
+                bad_report.total_count, displayed_count
+            ));
+        } else {
+            html.push_str(&format!(
+                r#"<p>Found {} bad ZIP files:</p>"#,
+                bad_report.total_count
+            ));
+        }
+
         for (folder, files) in &bad_report.files_by_folder {
             html.push_str(&format!(
                 r#"<h4 style="color: #ffd700; margin: 15px 0 10px 0;">{}</h4>"#,

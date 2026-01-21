@@ -50,6 +50,7 @@ pub struct BadFile {
 
 #[derive(Debug)]
 pub struct BadFilesReport {
+    pub total_count: usize,
     pub files_by_folder: Vec<(String, Vec<BadFile>)>, // (folder_name, bad_files)
 }
 
@@ -436,10 +437,12 @@ pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesR
         return None;
     }
 
+    let total_count = bad_files.len();
+
     // Group by parent_dir (folder)
     let mut by_folder: HashMap<String, Vec<BadFile>> = HashMap::new();
     
-    for file in bad_files.iter().take(30) {  // Limit to 30
+    for file in bad_files.iter().take(50) {  // Limit to 50
         let relative_path = format!("Line {}/{}/{}", line_id, file.parent_dir, file.name);
         let reason = file.invalid_reason.clone().unwrap_or_else(|| "Unknown error".to_string());
         
@@ -457,6 +460,7 @@ pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesR
     files_by_folder.sort_by(|a, b| a.0.cmp(&b.0));
 
     Some(BadFilesReport {
+        total_count,
         files_by_folder,
     })
 }
@@ -464,6 +468,14 @@ pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesR
 pub fn print_bad_files(report: &Option<BadFilesReport>) {
     if let Some(r) = report {
         println!("\n{}", "=== Bad ZIP Files ===".cyan());
+        
+        let displayed_count = r.files_by_folder.iter().map(|(_, files)| files.len()).sum::<usize>();
+        
+        if r.total_count > displayed_count {
+            println!("Found {} bad ZIP files, here are the first {}:", r.total_count, displayed_count);
+        } else {
+            println!("Found {} bad ZIP files:", r.total_count);
+        }
         
         for (folder, files) in &r.files_by_folder {
             println!("\n{}", folder.yellow());
