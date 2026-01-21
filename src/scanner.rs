@@ -140,9 +140,17 @@ pub fn get_recent_files(path: &str, minutes: i64) -> Vec<String> {
             let diff = now.signed_duration_since(mod_time);
 
             if diff.num_minutes() < minutes {
+                let full_path = e.path().to_string_lossy();
+                // Extract path starting from "Line " onwards
+                let display_path = if let Some(idx) = full_path.find("Line ") {
+                    &full_path[idx..]
+                } else {
+                    &full_path
+                };
+                
                 Some(format!(
                     "  - {} ({}) at {}",
-                    e.path().to_string_lossy(),
+                    display_path,
                     human_bytes::human_bytes(m.len() as f64),
                     mod_time.format("%Y-%m-%d %H:%M")
                 ))
