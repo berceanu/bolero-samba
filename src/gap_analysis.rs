@@ -92,7 +92,10 @@ pub fn find_gaps(files: &[FileEntry], line_id: &str) -> GapReport {
                 skipped_weekends += 1;
             }
         }
-        curr = curr.succ_opt().unwrap();
+        match curr.succ_opt() {
+            Some(next_date) => curr = next_date,
+            None => break, // Shouldn't happen with valid date ranges
+        }
     }
 
     GapReport {

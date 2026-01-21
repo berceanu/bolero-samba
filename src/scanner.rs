@@ -61,7 +61,12 @@ pub fn scan_files(path: &str) -> Vec<FileEntry> {
             // Integrity check
             let is_valid = is_zip_valid(p);
 
-            let modified: DateTime<Local> = metadata.modified().unwrap_or(SystemTime::now()).into();
+            // Use UNIX_EPOCH as fallback instead of now() to avoid falsely marking 
+            // files as "recent" when we can't read their modification time
+            let modified: DateTime<Local> = metadata
+                .modified()
+                .unwrap_or(SystemTime::UNIX_EPOCH)
+                .into();
 
             FileEntry {
                 name,

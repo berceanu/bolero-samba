@@ -54,7 +54,10 @@ pub fn calculate_estimates(
         if dow <= 5 {
             total_weekdays += 1;
         }
-        iter_date = iter_date.succ_opt().unwrap_or(end_date.succ_opt().unwrap());
+        match iter_date.succ_opt() {
+            Some(next_date) => iter_date = next_date,
+            None => break, // Reached max date, shouldn't happen with valid ranges
+        }
     }
 
     // 5. Calculate weekdays completed (from start to current)
@@ -65,7 +68,10 @@ pub fn calculate_estimates(
         if dow <= 5 {
             weekdays_completed += 1;
         }
-        iter_date = iter_date.succ_opt().unwrap_or(current_copy_date);
+        match iter_date.succ_opt() {
+            Some(next_date) => iter_date = next_date,
+            None => break,
+        }
     }
 
     // 6. Calculate Remaining
@@ -76,7 +82,10 @@ pub fn calculate_estimates(
             if dow <= 5 {
                 weekdays_remaining += 1;
             }
-            iter_date = iter_date.succ_opt().unwrap_or(end_date.succ_opt().unwrap());
+            match iter_date.succ_opt() {
+                Some(next_date) => iter_date = next_date,
+                None => break,
+            }
         }
     }
 
