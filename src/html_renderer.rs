@@ -25,11 +25,11 @@ pub fn render_dashboard(line_a_report: &AuditReport, line_b_report: &AuditReport
     html.push_str("  <meta charset=\"UTF-8\">\n");
     html.push_str("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
     html.push_str("  <meta http-equiv=\"refresh\" content=\"60\">\n");
-    html.push_str("  <title>Beam Transfer Dashboard</title>\n");
+    html.push_str("  <title>Transfer Status</title>\n");
     html.push_str(&render_styles());
     html.push_str("</head>\n<body>\n");
 
-    html.push_str("  <h1>Beam Transfer Dashboard</h1>\n");
+    html.push_str("  <h1>Transfer Status</h1>\n");
     html.push_str(&format!(
         "  <h3>Last Sync: {}</h3>\n",
         Local::now().format("%Y-%m-%d %H:%M:%S")
@@ -39,13 +39,13 @@ pub fn render_dashboard(line_a_report: &AuditReport, line_b_report: &AuditReport
 
     // Line B
     html.push_str("    <div class=\"column\">\n");
-    html.push_str("      <h2>Line B Status</h2>\n");
+    html.push_str("      <h2>Line B</h2>\n");
     html.push_str(&render_full_report(line_b_report));
     html.push_str("    </div>\n");
 
     // Line A
     html.push_str("    <div class=\"column\">\n");
-    html.push_str("      <h2>Line A Status</h2>\n");
+    html.push_str("      <h2>Line A</h2>\n");
     html.push_str(&render_full_report(line_a_report));
     html.push_str("    </div>\n");
 
