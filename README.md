@@ -49,8 +49,11 @@ cargo build --release --target x86_64-unknown-linux-musl
 ### Cron Setup
 
 ```bash
-*/5 * * * * cd /data/storage && ./beam_audit --dashboard /var/www/html/index.html >> /tmp/beam_audit.log 2>&1
+# Run every 5 minutes (adjust paths as needed)
+*/5 * * * * /data/storage/samba_share_cluster/beam_audit/target/x86_64-unknown-linux-musl/release/beam_audit --base-dir /data/storage/samba_share_cluster --dashboard /var/www/html/index.html >> /tmp/beam_audit.log 2>&1
 ```
+
+**Note**: The `--base-dir` argument allows running from any directory, so no `cd` needed.
 
 ### Email Configuration
 
