@@ -246,7 +246,11 @@ pub fn print_integrity_table(stats_opt: &Option<IntegrityStats>) {
                 Color::White
             })
             .add_attribute(Attribute::Bold),
-        Cell::new(stats.grand_bad)
+        Cell::new(if stats.grand_bad > 0 {
+            format!("⚠️ {}", stats.grand_bad)
+        } else {
+            stats.grand_bad.to_string()
+        })
             .fg(if stats.grand_bad > 0 {
                 Color::Red
             } else {

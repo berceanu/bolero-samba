@@ -230,10 +230,12 @@ fn render_integrity_section(report: &AuditReport) -> String {
         };
 
         html.push_str(&format!(
-            r#"<tr class="summary"><td class="bold">TOTALS / SUMMARY</td><td class="bold">{}</td><td{}>{}</td><td{}>{}</td><td class="bold">{}</td><td class="bold">{}</td><td class="bold">{}</td><td class="bold">{}</td></tr>"#,
+            r#"<tr class="summary"><td class="bold">TOTALS / SUMMARY</td><td class="bold">{}</td><td{}>{}</td><td{}>{}{}</td><td class="bold">{}</td><td class="bold">{}</td><td class="bold">{}</td><td class="bold">{}</td></tr>"#,
             stats.grand_total,
             empty_class, stats.grand_empty,
-            bad_class, stats.grand_bad,
+            bad_class, 
+            if stats.grand_bad > 0 { "⚠️ " } else { "" },
+            stats.grand_bad,
             human_bytes::human_bytes(stats.grand_min as f64),
             human_bytes::human_bytes(stats.grand_max as f64),
             human_bytes::human_bytes(stats.grand_median as f64),
