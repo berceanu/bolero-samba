@@ -193,9 +193,8 @@ fn main() {
                 since_ts
             );
             println!(
-                "Current Transfer Speed: {} MiB/s (Specific to Line {})",
-                format!("{speed_mib:.1}").green(),
-                line_id
+                "Current Transfer Speed: {} MiB/s",
+                format!("{speed_mib:.1}").green()
             );
         } else {
             println!(

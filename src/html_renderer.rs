@@ -135,10 +135,9 @@ fn render_transfer_status(report: &AuditReport) -> String {
     if report.speed_bps > 0 {
         html.push_str(&format!(
             r#"<p><strong>Status:</strong> <span class="green">ACTIVE TRANSFER DETECTED</span> (since {})</p>
-<p><strong>Current Transfer Speed:</strong> <span class="green">{:.1} MiB/s</span> (Specific to Line {})</p>"#,
+<p><strong>Current Transfer Speed:</strong> <span class="green">{:.1} MiB/s</span></p>"#,
             report.since_timestamp,
-            speed_mib,
-            report.line_id
+            speed_mib
         ));
     } else {
         html.push_str(&format!(
