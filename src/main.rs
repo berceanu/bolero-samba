@@ -59,7 +59,7 @@ fn main() {
             format!(
                 "=== Audit Report for LINE {}: {} ===",
                 line_id,
-                Local::now().format("%A, %B %d %Y, %H:%M:%S %z")
+                Local::now().format("%Y-%m-%d %H:%M")
             )
             .cyan()
         );
@@ -95,7 +95,7 @@ fn main() {
 
     // Timestamp Logic
     if current_state != prev_state || !std::path::Path::new(&since_file).exists() {
-        let now_str = Local::now().format("%a %b %d %H:%M:%S %Y").to_string();
+        let now_str = Local::now().format("%Y-%m-%d %H:%M").to_string();
         fs::write(&since_file, &now_str).ok();
     }
     let since_ts = fs::read_to_string(&since_file).unwrap_or_default();
@@ -329,7 +329,7 @@ fn collect_audit_data(line_id: &str, silent: bool) -> html_renderer::AuditReport
     let prev_state = prev_state.trim();
 
     if current_state != prev_state || !std::path::Path::new(&since_file).exists() {
-        let now_str = Local::now().format("%a %b %d %H:%M:%S %Y").to_string();
+        let now_str = Local::now().format("%Y-%m-%d %H:%M").to_string();
         fs::write(&since_file, &now_str).ok();
     }
     let since_ts = fs::read_to_string(&since_file).unwrap_or_default();

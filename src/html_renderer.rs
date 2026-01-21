@@ -32,7 +32,7 @@ pub fn render_dashboard(line_a_report: &AuditReport, line_b_report: &AuditReport
     html.push_str("  <h1>Transfer Status</h1>\n");
     html.push_str(&format!(
         "  <h3>Last Sync: {}</h3>\n",
-        Local::now().format("%Y-%m-%d %H:%M:%S")
+        Local::now().format("%Y-%m-%d %H:%M")
     ));
 
     html.push_str("  <div class=\"container\">\n");
