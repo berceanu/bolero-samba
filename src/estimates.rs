@@ -90,29 +90,57 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
     println!("\n{}", "=== Transfer Estimates ===".cyan());
 
     if let Some(r) = report {
+        // Calculate progress: assume we're counting down from some starting point
+        // Use estimated days remaining vs estimated total time
+        let progress_pct = if let (Some(days_eta), wdays_rem) = (r.estimated_days_eta, r.weekdays_remaining) {
+            if days_eta > 0 {
+                let completed = days_eta.saturating_sub(wdays_rem as u64);
+                ((completed as f64 / days_eta as f64 * 100.0).min(100.0)) as u8
+            } else {
+                100
+            }
+        } else {
+            0
+        };
+
+        // Render progress bar (20 blocks total)
+        let filled_blocks = (progress_pct as usize * 20) / 100;
+        let empty_blocks = 20 - filled_blocks;
+        let progress_bar = format!(
+            "{}{}",
+            "▓".repeat(filled_blocks),
+            "░".repeat(empty_blocks)
+        );
+
         println!(
-            "Current Progress: Copying {}",
+            "Transfer Progress: {} {}%",
+            progress_bar.green(),
+            progress_pct
+        );
+        
+        println!(
+            "Current Progress:  Copying {}",
             r.current_copy_date.format("%Y-%m-%d").to_string().green()
         );
-        println!("Daily Average:    {} GiB/day", r.daily_average_gib);
-        println!("Days Remaining:   {} weekdays", r.weekdays_remaining);
+        println!("Daily Average:     {} GiB/day", r.daily_average_gib);
+        println!("Days Remaining:    {} weekdays", r.weekdays_remaining);
         println!(
-            "Est. Data Left:   {:.1} TiB (Free: {:.1} TiB)",
+            "Est. Data Left:    {:.1} TiB (Free: {:.1} TiB)",
             r.estimated_data_left_tib, r.free_space_tib
         );
 
         if r.disk_status_ok {
-            println!("Disk Status:      {}", "OK".green());
+            println!("Disk Status:       {}", "OK".green());
         } else {
             println!(
-                "Disk Status:      {}",
+                "Disk Status:       {}",
                 "CRITICAL - Insufficient Space!".red()
             );
         }
 
         if let (Some(days), Some(hours)) = (r.estimated_days_eta, r.estimated_hours_eta) {
             println!(
-                "Estimated Time:   {} days ({} hours) at current speed.",
+                "Estimated Time:    {} days ({} hours) at current speed.",
                 days.to_string().yellow(),
                 hours
             );

@@ -78,6 +78,10 @@ fn render_styles() -> String {
     .recent-files { list-style: none; padding-left: 0; font-size: 0.85em; }
     .recent-files li { padding: 2px 0; word-break: break-all; }
     .redundancy { margin: 10px 0; padding: 10px; background-color: #1a1a1a; border-left: 3px solid #FFC107; }
+    progress { appearance: none; border: none; border-radius: 4px; }
+    progress::-webkit-progress-bar { background-color: #2a2a2a; border-radius: 4px; }
+    progress::-webkit-progress-value { background: linear-gradient(90deg, #4CAF50, #8BC34A); border-radius: 4px; }
+    progress::-moz-progress-bar { background: linear-gradient(90deg, #4CAF50, #8BC34A); border-radius: 4px; }
     @media (max-width: 768px) {
       body { padding: 10px; }
       h1 { font-size: 1.5em; }
@@ -297,6 +301,27 @@ fn render_estimates_section(report: &AuditReport) -> String {
     html.push_str(r#"<div class="section"><h3 class="section-title">Transfer Estimates</h3>"#);
 
     if let Some(est) = &report.estimates_report {
+        // Calculate progress percentage
+        let progress_pct = if let (Some(days_eta), wdays_rem) = (est.estimated_days_eta, est.weekdays_remaining) {
+            if days_eta > 0 {
+                let completed = days_eta.saturating_sub(wdays_rem as u64);
+                ((completed as f64 / days_eta as f64 * 100.0).min(100.0)) as u8
+            } else {
+                100
+            }
+        } else {
+            0
+        };
+
+        // Render HTML5 progress bar
+        html.push_str(&format!(
+            r#"<div style="margin: 15px 0;"><progress value="{}" max="100" style="width: 100%; height: 22px;"></progress>
+<p style="margin: 5px 0 15px 0; font-size: 0.9em; color: #d1d1d1;">{}% complete • {} weekdays remaining</p></div>"#,
+            progress_pct,
+            progress_pct,
+            est.weekdays_remaining
+        ));
+
         html.push_str(&format!(
             r#"<p><strong>Current Progress:</strong> Copying <span class="green">{}</span></p>"#,
             est.current_copy_date.format("%Y-%m-%d")
@@ -304,10 +329,6 @@ fn render_estimates_section(report: &AuditReport) -> String {
         html.push_str(&format!(
             r"<p><strong>Daily Average:</strong> {} GiB/day</p>",
             est.daily_average_gib
-        ));
-        html.push_str(&format!(
-            r"<p><strong>Days Remaining:</strong> {} weekdays</p>",
-            est.weekdays_remaining
         ));
         html.push_str(&format!(
             r"<p><strong>Est. Data Left:</strong> {:.1} TiB (Free: {:.1} TiB)</p>",
