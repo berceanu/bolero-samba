@@ -40,7 +40,7 @@ struct Args {
     #[arg(long)]
     test_email: bool,
 
-    /// Minimum minutes a state must persist before sending email alert (default: 20)
+    /// Minimum minutes a state must persist before sending email alert
     #[arg(long, default_value_t = 20)]
     alert_threshold: u64,
 }

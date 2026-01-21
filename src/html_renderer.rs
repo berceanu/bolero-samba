@@ -310,7 +310,7 @@ fn render_estimates_section(report: &AuditReport) -> String {
         // Render HTML5 progress bar
         html.push_str(&format!(
             r#"<div style="margin: 15px 0;"><progress value="{}" max="100" style="width: 100%; height: 22px;"></progress>
-<p style="margin: 5px 0 15px 0; font-size: 0.9em; color: #d1d1d1;">{}% complete • {} weekdays remaining</p></div>"#,
+<p style="margin: 5px 0 15px 0; font-size: 0.9em; color: #d1d1d1;">{}% complete • {} daily archives remaining</p></div>"#,
             progress_pct,
             progress_pct,
             est.weekdays_remaining
@@ -323,6 +323,18 @@ fn render_estimates_section(report: &AuditReport) -> String {
         html.push_str(&format!(
             r"<p><strong>Daily Average:</strong> {} GiB/day</p>",
             est.daily_average_gib
+        ));
+        
+        // Format full project date range
+        let date_range = format!(
+            "{} - {}",
+            est.start_date.format("%b %Y"),
+            est.end_date.format("%b %Y")
+        );
+        
+        html.push_str(&format!(
+            r"<p><strong>Data to Copy:</strong> {} daily archives ({})</p>",
+            est.weekdays_remaining, date_range
         ));
         html.push_str(&format!(
             r"<p><strong>Est. Data Left:</strong> {:.1} TiB (Free: {:.1} TiB)</p>",
@@ -337,7 +349,7 @@ fn render_estimates_section(report: &AuditReport) -> String {
 
         if let (Some(days), Some(hours)) = (est.estimated_days_eta, est.estimated_hours_eta) {
             html.push_str(&format!(
-                r#"<p><strong>Estimated Time:</strong> <span class="yellow">{days} days</span> ({hours} hours) at current speed.</p>"#
+                r#"<p><strong>Time to Complete:</strong> <span class="yellow">~{days} days</span> ({hours} hours) at current speed</p>"#
             ));
         }
     } else {

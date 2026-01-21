@@ -16,6 +16,8 @@ pub struct EstimatesReport {
     pub disk_status_ok: bool,
     pub estimated_days_eta: Option<u64>,
     pub estimated_hours_eta: Option<u64>,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
 }
 
 #[must_use]
@@ -122,6 +124,8 @@ pub fn calculate_estimates(
         disk_status_ok,
         estimated_days_eta,
         estimated_hours_eta,
+        start_date,
+        end_date,
     })
 }
 
@@ -152,7 +156,18 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
             r.current_copy_date.format("%Y-%m-%d").to_string().green()
         );
         println!("Daily Average:     {} GiB/day", r.daily_average_gib);
-        println!("Days Remaining:    {} weekdays", r.weekdays_remaining);
+        
+        // Format full project date range
+        let date_range = format!(
+            "{} - {}",
+            r.start_date.format("%b %Y"),
+            r.end_date.format("%b %Y")
+        );
+        
+        println!(
+            "Data to Copy:      {} daily archives ({})",
+            r.weekdays_remaining, date_range
+        );
         println!(
             "Est. Data Left:    {:.1} TiB (Free: {:.1} TiB)",
             r.estimated_data_left_tib, r.free_space_tib
@@ -169,7 +184,7 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
 
         if let (Some(days), Some(hours)) = (r.estimated_days_eta, r.estimated_hours_eta) {
             println!(
-                "Estimated Time:    {} days ({} hours) at current speed.",
+                "Time to Complete:  ~{} days ({} hours) at current speed",
                 days.to_string().yellow(),
                 hours
             );
