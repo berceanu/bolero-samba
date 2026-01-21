@@ -1,152 +1,94 @@
-# Beam Audit Tool
+# Beam Audit
 
-Complete Rust replacement for `audit_transfer.sh` and `update_web.sh`.
-
-## Installation
-
-```bash
-cd beam_audit
-cargo build --release
-# Binary is at: target/release/beam_audit
-```
-
-## Usage
-
-### 1. Terminal Audit (replaces audit_transfer.sh)
-
-```bash
-# Audit Line B (default)
-./beam_audit/target/release/beam_audit
-
-# Audit Line A
-./beam_audit/target/release/beam_audit A
-
-# Audit Line B explicitly
-./beam_audit/target/release/beam_audit B
-```
-
-### 2. HTML Output (single line)
-
-```bash
-# Generate HTML for Line B
-./beam_audit/target/release/beam_audit B --html > line_b.html
-
-# Generate HTML for Line A
-./beam_audit/target/release/beam_audit A --html > line_a.html
-```
-
-### 3. Full Dashboard (replaces update_web.sh)
-
-```bash
-# Generate complete dashboard with both lines
-./beam_audit/target/release/beam_audit --dashboard /var/www/html/index.html
-```
-
-This automatically:
-- Audits both Line A and Line B
-- Generates the full HTML dashboard
-- Writes directly to the output file
-- Handles locking internally (prevents concurrent runs)
-- Sends email alerts on state changes
-
-## Automation
-
-### Cron (recommended)
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add: Update dashboard every 5 minutes
-*/5 * * * * cd /mnt/storage/samba_share_cluster && ./beam_audit/target/release/beam_audit --dashboard /var/www/html/index.html >> /var/log/beam_audit.log 2>&1
-```
-
-### Systemd Timer
-
-```ini
-# /etc/systemd/system/beam-dashboard.service
-[Unit]
-Description=Beam Transfer Dashboard Generator
-
-[Service]
-Type=oneshot
-WorkingDirectory=/mnt/storage/samba_share_cluster
-ExecStart=/mnt/storage/samba_share_cluster/beam_audit/target/release/beam_audit --dashboard /var/www/html/index.html
-User=www-data
-```
-
-```ini
-# /etc/systemd/system/beam-dashboard.timer
-[Unit]
-Description=Update Beam Dashboard every 5 minutes
-
-[Timer]
-OnBootSec=1min
-OnUnitActiveSec=5min
-
-[Install]
-WantedBy=timers.target
-```
-
-```bash
-sudo systemctl enable --now beam-dashboard.timer
-```
-
-## Email Alerts
-
-Configure email settings in `.email_config`:
-
-```bash
-SMTP_USER="your-email@gmail.com"
-SMTP_PASS="your-app-password"
-RECIPIENT_EMAIL="alerts@example.com"
-```
-
-The tool automatically sends alerts when transfers start/stop.
+Rust-based file transfer monitoring and audit system for network storage. Generates real-time dashboards with transfer speed detection, integrity validation, gap analysis, and email alerts.
 
 ## Features
 
-All bash script functionality is now in Rust:
+- **Transfer Detection**: Accurate speed measurement using disk block allocation (matches `du` behavior)
+- **Integrity Validation**: Fast ZIP file verification without full extraction
+- **Gap Analysis**: Detects missing weekday archives
+- **Email Alerts**: Automatic notifications on transfer state changes
+- **Responsive Dashboard**: Mobile-friendly HTML with auto-refresh
+- **Parallel Processing**: Concurrent audits for multiple production lines
+- **Cross-Platform**: Static musl binary works on any Linux (Ubuntu 18.04+)
 
-✅ Active transfer detection (10s differential analysis)  
-✅ File integrity verification (ZIP validation)  
-✅ State tracking with timestamps  
-✅ Email alerts on state changes  
-✅ Gap analysis (missing weekdays)  
-✅ Transfer estimates & ETA  
-✅ Directory size anomaly detection  
-✅ Redundancy checks (system-wide I/O monitoring)  
-✅ HTML dashboard generation  
-✅ Terminal colored output  
+## Quick Start
+
+### Build
+
+```bash
+# Standard build
+cargo build --release
+
+# Cross-platform static binary (recommended)
+cargo build --release --target x86_64-unknown-linux-musl
+```
+
+### Usage
+
+```bash
+# Terminal audit (single line)
+./target/release/beam_audit A     # Audit Line A
+./target/release/beam_audit B     # Audit Line B
+
+# HTML fragment output
+./target/release/beam_audit B --html > output.html
+
+# Full dashboard (both lines)
+./target/release/beam_audit --dashboard /var/www/html/index.html
+```
+
+## Deployment
+
+### Cron Setup
+
+```bash
+*/5 * * * * cd /data/storage && ./beam_audit --dashboard /var/www/html/index.html >> /tmp/beam_audit.log 2>&1
+```
+
+### Email Configuration
+
+Create `.email_config` in working directory:
+
+```bash
+SMTP_USER=alerts@example.com
+SMTP_PASS=your-app-password
+RECIPIENT_EMAIL=team@example.com
+```
+
+## Architecture
+
+```
+beam_audit/
+├── src/
+│   ├── main.rs          # CLI & parallel execution
+│   ├── scanner.rs       # File scanning & size measurement
+│   ├── stats.rs         # Integrity statistics
+│   ├── gap_analysis.rs  # Missing archive detection
+│   ├── estimates.rs     # Transfer ETA calculations
+│   ├── html_renderer.rs # Dashboard generation
+│   ├── email.rs         # SMTP alerts
+│   ├── system_io.rs     # I/O monitoring
+│   └── types.rs         # Data structures
+├── Cargo.toml
+└── README.md
+```
 
 ## Performance
 
-- **Faster**: Native compiled binary vs interpreted bash
-- **Parallel**: File scanning uses rayon for multi-threading
-- **Efficient**: No external process spawning (awk, python, find)
-- **Safe**: Rust memory safety prevents crashes
+- **Native Speed**: Compiled Rust binary (no interpreters)
+- **Parallel Scanning**: Multi-threaded file operations
+- **Efficient Measurement**: Uses `MetadataExt::blocks()` for accurate disk usage
+- **Low Memory**: Streaming file processing
 
-## Migration from Bash
+## Requirements
 
-**Old way:**
-```bash
-./audit_transfer.sh B          # Terminal output
-./update_web.sh                # Dashboard
-```
+**Runtime**: None (static binary)
 
-**New way:**
-```bash
-./beam_audit/target/release/beam_audit B                    # Terminal output
-./beam_audit/target/release/beam_audit --dashboard index.html   # Dashboard
-```
+**Build**:
+- Rust 1.80+ (Edition 2024)
+- musl-tools (for static builds): `apt install musl-tools`
 
-## No Dependencies Required
+## License
 
-The bash scripts required:
-- `python3` + `zipfile` library
-- `aha` (ANSI to HTML converter)
-- `dstat` (optional, for redundancy checks)
-- Various GNU utilities (`find`, `awk`, `sed`, `du`, `df`)
-
-The Rust binary requires:
-- Nothing! It's a single statically-linked executable
+MIT
