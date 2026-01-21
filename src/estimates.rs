@@ -32,7 +32,8 @@ pub fn calculate_estimates(
     let (start_date, end_date) = parse_config(&config_path)?;
 
     // 2. Identify Current Copy Date
-    let current_copy_date = get_current_copy_date(files, line_id, search_dir);
+    let current_copy_date = get_current_copy_date(files, line_id, search_dir)
+        .unwrap_or(start_date); // If no data, start from beginning (0% progress)
 
     // 3. Calculate Stats
     let folder_dates = get_folder_dates(files, line_id);
@@ -229,7 +230,7 @@ fn get_folder_dates(files: &[FileEntry], line_id: &str) -> Vec<NaiveDate> {
     dates
 }
 
-fn get_current_copy_date(files: &[FileEntry], line_id: &str, _search_dir: &str) -> NaiveDate {
+fn get_current_copy_date(files: &[FileEntry], line_id: &str, _search_dir: &str) -> Option<NaiveDate> {
     // 1. Try to get date from recent files (modified in last 5 mins)
     // Note: Since we passed `files` (All Zips), we can check their mod times.
     // Ideally we want the "Active" file.
@@ -257,17 +258,17 @@ fn get_current_copy_date(files: &[FileEntry], line_id: &str, _search_dir: &str) 
         .next();
 
     if let Some(d) = recent_date {
-        return d;
+        return Some(d);
     }
 
     // 2. Fallback: Latest existing folder date
     let dates = get_folder_dates(files, line_id);
     if let Some(last) = dates.last() {
-        return *last;
+        return Some(*last);
     }
 
-    // 3. Fallback: Today (shouldn't happen if folders exist)
-    Local::now().date_naive()
+    // 3. No data exists - return None so we can default to start_date (0% progress)
+    None
 }
 
 fn get_available_bytes(path: &str) -> u64 {
