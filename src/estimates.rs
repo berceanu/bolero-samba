@@ -25,7 +25,7 @@ pub fn calculate_estimates(
     search_dir: &str,
     files: &[FileEntry],
     line_id: &str,
-    total_bytes: u64,
+    _total_bytes: u64,
     speed_bps: u64,
     base_dir: &str,
 ) -> Option<EstimatesReport> {
@@ -37,9 +37,6 @@ pub fn calculate_estimates(
     let current_copy_date = get_current_copy_date(files, line_id, search_dir).unwrap_or(start_date); // If no data, start from beginning (0% progress)
 
     // 3. Calculate median daily size (more robust than mean for outliers)
-    let folder_dates = get_folder_dates(files, line_id);
-    let folder_count = folder_dates.len() as u64;
-
     // Group files by parent_dir and calculate size per folder
     let mut folder_sizes: Vec<u64> = {
         let mut size_map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
