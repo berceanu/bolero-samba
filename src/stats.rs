@@ -58,12 +58,26 @@ pub fn calculate_integrity_stats(
     files: &[FileEntry],
     tiny_threshold: u64,
 ) -> Option<IntegrityStats> {
+    use chrono::Local;
+    
     if files.is_empty() {
         return None;
     }
 
+    // Filter out recently modified files (last 5 minutes) to exclude in-progress transfers
+    let now = Local::now();
+    let threshold_minutes = 5;
+    
+    let stable_files: Vec<&FileEntry> = files
+        .iter()
+        .filter(|f| {
+            let age_minutes = now.signed_duration_since(f.modified).num_minutes();
+            age_minutes >= threshold_minutes
+        })
+        .collect();
+
     let mut groups: HashMap<String, Vec<&FileEntry>> = HashMap::new();
-    for f in files {
+    for f in stable_files {
         groups.entry(f.name.clone()).or_default().push(f);
     }
 
@@ -399,7 +413,24 @@ pub fn print_anomalies(report: &Option<AnomalyReport>) {
 
 #[must_use]
 pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesReport> {
-    let bad_files: Vec<&FileEntry> = files.iter().filter(|f| !f.is_valid).collect();
+    use chrono::Local;
+    
+    let now = Local::now();
+    let threshold_minutes = 5;
+    
+    // Filter bad files, excluding recently modified ones (last 5 minutes)
+    let bad_files: Vec<&FileEntry> = files
+        .iter()
+        .filter(|f| {
+            if f.is_valid {
+                return false;
+            }
+            
+            // Exclude files modified in the last 5 minutes (likely in-progress transfers)
+            let age_minutes = now.signed_duration_since(f.modified).num_minutes();
+            age_minutes >= threshold_minutes
+        })
+        .collect();
     
     if bad_files.is_empty() {
         return None;
