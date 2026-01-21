@@ -36,16 +36,33 @@ pub fn calculate_estimates(
     // 2. Identify Current Copy Date
     let current_copy_date = get_current_copy_date(files, line_id, search_dir).unwrap_or(start_date); // If no data, start from beginning (0% progress)
 
-    // 3. Calculate Stats
+    // 3. Calculate median daily size (more robust than mean for outliers)
     let folder_dates = get_folder_dates(files, line_id);
     let folder_count = folder_dates.len() as u64;
 
-    let avg_bytes_per_day = if folder_count > 0 {
-        total_bytes / folder_count
+    // Group files by parent_dir and calculate size per folder
+    let mut folder_sizes: Vec<u64> = {
+        let mut size_map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+        for f in files {
+            *size_map.entry(f.parent_dir.clone()).or_insert(0) += f.size;
+        }
+        size_map.values().copied().collect()
+    };
+    
+    folder_sizes.sort_unstable();
+    
+    let median_bytes_per_day = if !folder_sizes.is_empty() {
+        let count = folder_sizes.len();
+        if count % 2 == 1 {
+            folder_sizes[count / 2]
+        } else {
+            u64::midpoint(folder_sizes[count / 2 - 1], folder_sizes[count / 2])
+        }
     } else {
         0
     };
-    let daily_average_gib = avg_bytes_per_day / 1_024 / 1_024 / 1_024;
+    
+    let daily_average_gib = median_bytes_per_day / 1_024 / 1_024 / 1_024;
 
     // 4. Calculate total weekdays from start to end
     let mut total_weekdays = 0;
@@ -96,7 +113,7 @@ pub fn calculate_estimates(
     //     return None; // Transfer complete
     // }
 
-    let total_remaining_bytes = u64::from(weekdays_remaining) * avg_bytes_per_day;
+    let total_remaining_bytes = u64::from(weekdays_remaining) * median_bytes_per_day;
     let estimated_data_left_tib =
         total_remaining_bytes as f64 / 1_024.0 / 1_024.0 / 1_024.0 / 1_024.0;
 
@@ -155,7 +172,7 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
             "Current Progress:  Copying {}",
             r.current_copy_date.format("%Y-%m-%d").to_string().green()
         );
-        println!("Daily Average:     {} GiB/day", r.daily_average_gib);
+        println!("Daily Median:      {} GiB/day", r.daily_average_gib);
         
         // Format full project date range
         let date_range = format!(

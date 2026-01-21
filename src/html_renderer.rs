@@ -321,7 +321,7 @@ fn render_estimates_section(report: &AuditReport) -> String {
             est.current_copy_date.format("%Y-%m-%d")
         ));
         html.push_str(&format!(
-            r"<p><strong>Daily Average:</strong> {} GiB/day</p>",
+            r"<p><strong>Daily Median:</strong> {} GiB/day</p>",
             est.daily_average_gib
         ));
         
