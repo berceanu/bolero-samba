@@ -149,13 +149,19 @@ pub fn calculate_integrity_stats(
         let gm = if valid_groups % 2 == 1 {
             all_medians[valid_groups / 2]
         } else {
-            f64::midpoint(all_medians[valid_groups / 2 - 1], all_medians[valid_groups / 2])
+            f64::midpoint(
+                all_medians[valid_groups / 2 - 1],
+                all_medians[valid_groups / 2],
+            )
         };
 
         let gsd = if valid_groups % 2 == 1 {
             all_stddevs[valid_groups / 2]
         } else {
-            f64::midpoint(all_stddevs[valid_groups / 2 - 1], all_stddevs[valid_groups / 2])
+            f64::midpoint(
+                all_stddevs[valid_groups / 2 - 1],
+                all_stddevs[valid_groups / 2],
+            )
         };
         (gm as u64, gsd)
     } else {
@@ -179,7 +185,9 @@ pub fn calculate_integrity_stats(
 }
 
 pub fn print_integrity_table(stats_opt: &Option<IntegrityStats>) {
-    let stats = if let Some(s) = stats_opt { s } else {
+    let stats = if let Some(s) = stats_opt {
+        s
+    } else {
         println!("No zip files found.");
         return;
     };
@@ -251,12 +259,12 @@ pub fn print_integrity_table(stats_opt: &Option<IntegrityStats>) {
         } else {
             stats.grand_bad.to_string()
         })
-            .fg(if stats.grand_bad > 0 {
-                Color::Red
-            } else {
-                Color::White
-            })
-            .add_attribute(Attribute::Bold),
+        .fg(if stats.grand_bad > 0 {
+            Color::Red
+        } else {
+            Color::White
+        })
+        .add_attribute(Attribute::Bold),
         Cell::new(human_bytes::human_bytes(stats.grand_min as f64)).add_attribute(Attribute::Bold),
         Cell::new(human_bytes::human_bytes(stats.grand_max as f64)).add_attribute(Attribute::Bold),
         Cell::new(human_bytes::human_bytes(stats.grand_median as f64))
@@ -324,7 +332,9 @@ pub fn calculate_anomalies(files: &[FileEntry]) -> Option<AnomalyReport> {
 }
 
 pub fn print_anomalies(report: &Option<AnomalyReport>) {
-    let r = if let Some(r) = report { r } else {
+    let r = if let Some(r) = report {
+        r
+    } else {
         println!("No completed directories.");
         return;
     };
@@ -357,7 +367,12 @@ pub fn print_anomalies(report: &Option<AnomalyReport>) {
             // We use println! directly, can't easily pass Color enum to format! macro without crate
             // Let's just use colored crate
             if a.category == "Too Small" {
-                println!("⚠️ {:<35} | {:<10} | ({})", a.name, size_str.red(), a.category);
+                println!(
+                    "⚠️ {:<35} | {:<10} | ({})",
+                    a.name,
+                    size_str.red(),
+                    a.category
+                );
             } else {
                 println!(
                     "⚠️ {:<35} | {:<10} | ({})",

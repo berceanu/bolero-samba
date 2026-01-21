@@ -123,10 +123,7 @@ fn main() {
         if !args.html {
             println!(
                 "\n{}",
-                format!(
-                    "-- State Change Detected ({prev_state} -> {current_state}) --"
-                )
-                .cyan()
+                format!("-- State Change Detected ({prev_state} -> {current_state}) --").cyan()
             );
         }
         fs::write(&state_file, current_state).ok();
@@ -159,14 +156,19 @@ fn main() {
     // Calculate all reports
     let integrity_stats = stats::calculate_integrity_stats(&files, tiny_threshold);
     let gap_report = gap_analysis::find_gaps(&files, &line_id);
-    let estimates_report =
-        estimates::calculate_estimates(&search_dir, &files, &line_id, size_t2, speed_bps, &args.base_dir);
+    let estimates_report = estimates::calculate_estimates(
+        &search_dir,
+        &files,
+        &line_id,
+        size_t2,
+        speed_bps,
+        &args.base_dir,
+    );
     let anomalies_report = stats::calculate_anomalies(&files);
 
     // Output based on mode
     if args.html {
         let report = html_renderer::AuditReport {
-            line_id: line_id.clone(),
             total_size: size_t2,
             total_files: total_zip_files,
             speed_bps,
@@ -258,7 +260,9 @@ fn generate_dashboard(output_file: &str, base_dir: &str) {
         })
     });
 
-    let (line_a_report, line_b_report) = if let Ok(reports) = result { reports } else {
+    let (line_a_report, line_b_report) = if let Ok(reports) = result {
+        reports
+    } else {
         fs::remove_file(lockfile).ok();
         eprintln!("Error during audit data collection");
         std::process::exit(1);
@@ -379,8 +383,8 @@ fn collect_audit_data(line_id: &str, base_dir: &str, silent: bool) -> html_rende
         estimates::calculate_estimates(&search_dir, &files, line_id, size_t2, speed_bps, base_dir);
     let anomalies_report = stats::calculate_anomalies(&files);
 
+    // Return AuditReport
     html_renderer::AuditReport {
-        line_id: line_id.to_string(),
         total_size: size_t2,
         total_files: total_zip_files,
         speed_bps,

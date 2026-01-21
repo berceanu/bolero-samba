@@ -15,7 +15,7 @@ pub fn get_total_size(path: &str) -> u64 {
         .filter_map(std::result::Result::ok)
         .filter_map(|entry| entry.metadata().ok())
         .filter(std::fs::Metadata::is_file)
-        .map(|m| m.blocks() * 512)  // blocks() is in 512-byte units
+        .map(|m| m.blocks() * 512) // blocks() is in 512-byte units
         .sum()
 }
 
@@ -56,17 +56,19 @@ pub fn scan_files(path: &str) -> Vec<FileEntry> {
 
             let parent = p
                 .parent()
-                .and_then(|parent_path| parent_path.file_name()).map_or_else(|| "Unknown".to_string(), |name| name.to_string_lossy().to_string());
+                .and_then(|parent_path| parent_path.file_name())
+                .map_or_else(
+                    || "Unknown".to_string(),
+                    |name| name.to_string_lossy().to_string(),
+                );
 
             // Integrity check
             let is_valid = is_zip_valid(p);
 
-            // Use UNIX_EPOCH as fallback instead of now() to avoid falsely marking 
+            // Use UNIX_EPOCH as fallback instead of now() to avoid falsely marking
             // files as "recent" when we can't read their modification time
-            let modified: DateTime<Local> = metadata
-                .modified()
-                .unwrap_or(SystemTime::UNIX_EPOCH)
-                .into();
+            let modified: DateTime<Local> =
+                metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH).into();
 
             FileEntry {
                 name,

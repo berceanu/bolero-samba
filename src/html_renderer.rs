@@ -4,7 +4,6 @@ use crate::stats::{AnomalyReport, IntegrityStats};
 use chrono::Local;
 
 pub struct AuditReport {
-    pub line_id: String,
     pub total_size: u64,
     pub total_files: usize,
     pub speed_bps: u64,
@@ -237,7 +236,7 @@ fn render_integrity_section(report: &AuditReport) -> String {
             r#"<tr class="summary"><td class="bold">TOTALS / SUMMARY</td><td class="bold">{}</td><td{}>{}</td><td{}>{}{}</td><td class="bold">{}</td><td class="bold">{}</td><td class="bold">{}</td><td class="bold">{}</td></tr>"#,
             stats.grand_total,
             empty_class, stats.grand_empty,
-            bad_class, 
+            bad_class,
             if stats.grand_bad > 0 { "⚠️ " } else { "" },
             stats.grand_bad,
             human_bytes::human_bytes(stats.grand_min as f64),

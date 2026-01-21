@@ -32,8 +32,7 @@ pub fn calculate_estimates(
     let (start_date, end_date) = parse_config(&config_path)?;
 
     // 2. Identify Current Copy Date
-    let current_copy_date = get_current_copy_date(files, line_id, search_dir)
-        .unwrap_or(start_date); // If no data, start from beginning (0% progress)
+    let current_copy_date = get_current_copy_date(files, line_id, search_dir).unwrap_or(start_date); // If no data, start from beginning (0% progress)
 
     // 3. Calculate Stats
     let folder_dates = get_folder_dates(files, line_id);
@@ -140,18 +139,14 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
         // Render progress bar (20 blocks total)
         let filled_blocks = (progress_pct as usize * 20) / 100;
         let empty_blocks = 20 - filled_blocks;
-        let progress_bar = format!(
-            "{}{}",
-            "▓".repeat(filled_blocks),
-            "░".repeat(empty_blocks)
-        );
+        let progress_bar = format!("{}{}", "▓".repeat(filled_blocks), "░".repeat(empty_blocks));
 
         println!(
             "Transfer Progress: {} {}%",
             progress_bar.green(),
             progress_pct
         );
-        
+
         println!(
             "Current Progress:  Copying {}",
             r.current_copy_date.format("%Y-%m-%d").to_string().green()
@@ -185,8 +180,7 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
 }
 
 fn parse_config(path: &str) -> Option<(NaiveDate, NaiveDate)> {
-    let content = fs::read_to_string(path)
-        .ok()?;
+    let content = fs::read_to_string(path).ok()?;
 
     let mut start = None;
     let mut end = None;
@@ -239,7 +233,11 @@ fn get_folder_dates(files: &[FileEntry], line_id: &str) -> Vec<NaiveDate> {
     dates
 }
 
-fn get_current_copy_date(files: &[FileEntry], line_id: &str, _search_dir: &str) -> Option<NaiveDate> {
+fn get_current_copy_date(
+    files: &[FileEntry],
+    line_id: &str,
+    _search_dir: &str,
+) -> Option<NaiveDate> {
     // 1. Try to get date from recent files (modified in last 5 mins)
     // Note: Since we passed `files` (All Zips), we can check their mod times.
     // Ideally we want the "Active" file.
@@ -368,7 +366,7 @@ mod tests {
         let date_active = get_current_copy_date(&files_active, "B", ".");
         assert_eq!(
             date_active,
-            NaiveDate::parse_from_str("2024-08-01", "%Y-%m-%d").unwrap()
+            Some(NaiveDate::parse_from_str("2024-08-01", "%Y-%m-%d").unwrap())
         );
 
         // Case 2: No Active Transfer (Use latest folder)
@@ -393,7 +391,7 @@ mod tests {
         // Should pick 2024-08-02 as it is the latest folder date in the list
         assert_eq!(
             date_idle,
-            NaiveDate::parse_from_str("2024-08-02", "%Y-%m-%d").unwrap()
+            Some(NaiveDate::parse_from_str("2024-08-02", "%Y-%m-%d").unwrap())
         );
     }
 
