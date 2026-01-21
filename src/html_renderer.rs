@@ -257,7 +257,7 @@ fn render_integrity_section(report: &AuditReport) -> String {
 fn render_gap_section(report: &AuditReport) -> String {
     let mut html = String::new();
     html.push_str(
-        r#"<div class="section"><h3 class="section-title">Gap Analysis (Weekdays Only)</h3>"#,
+        r#"<div class="section"><h3 class="section-title">Missing Daily Archives</h3>"#,
     );
 
     if let Some(gap) = &report.gap_report {
@@ -265,13 +265,14 @@ fn render_gap_section(report: &AuditReport) -> String {
             html.push_str("<p>No dated folders found for gap analysis.</p>");
         } else {
             for missing in &gap.missing_weekdays {
+                let day_name = missing.format("%A").to_string();
                 html.push_str(&format!(
-                    r#"<p class="red"><strong>⚠️ CRITICAL:</strong> Missing Weekday - {missing}</p>"#
+                    r#"<p class="red"><strong>⚠️</strong> {missing} ({day_name}) - Archive not found</p>"#
                 ));
             }
 
             html.push_str(&format!(
-                r"<p>Range Analyzed: {} to {}</p>",
+                r"<p>Range checked: {} to {}</p>",
                 gap.start_date, gap.end_date
             ));
 
@@ -279,11 +280,6 @@ fn render_gap_section(report: &AuditReport) -> String {
                 html.push_str(&format!(
                     r#"<p class="green">No weekday gaps found.</p> <p>({} weekends skipped)</p>"#,
                     gap.skipped_weekends
-                ));
-            } else {
-                html.push_str(&format!(
-                    r#"<p class="red">Found {} unexpected weekday gaps.</p>"#,
-                    gap.missing_weekdays.len()
                 ));
             }
         }

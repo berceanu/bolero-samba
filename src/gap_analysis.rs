@@ -21,11 +21,12 @@ pub fn analyze_gaps(files: &[FileEntry], line_id: &str) {
     }
 
     for missing in &report.missing_weekdays {
-        println!("{} Missing Weekday - {}", "CRITICAL:".red(), missing);
+        let day_name = missing.format("%A").to_string(); // Monday, Tuesday, etc.
+        println!("{} {} ({}) - Archive not found", "⚠️".yellow(), missing, day_name);
     }
 
     println!(
-        "Range Analyzed: {} to {}",
+        "Range checked: {} to {}",
         report.start_date, report.end_date
     );
     if report.missing_weekdays.is_empty() {
@@ -33,12 +34,6 @@ pub fn analyze_gaps(files: &[FileEntry], line_id: &str) {
             "{} ({} weekends skipped)",
             "No weekday gaps found.".green(),
             report.skipped_weekends
-        );
-    } else {
-        println!(
-            "{} {} unexpected weekday gaps.",
-            "Found".red(),
-            report.missing_weekdays.len()
         );
     }
 }

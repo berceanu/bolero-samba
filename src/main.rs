@@ -271,7 +271,7 @@ fn main() {
         println!("\n{}", "=== File Integrity & Heuristics ===".cyan());
         stats::print_integrity_table(&integrity_stats);
 
-        println!("\n{}", "=== Gap Analysis (Weekdays Only) ===".cyan());
+        println!("\n{}", "=== Missing Daily Archives ===".cyan());
         gap_analysis::analyze_gaps(&files, &line_id);
 
         estimates::print_estimates(&estimates_report);
