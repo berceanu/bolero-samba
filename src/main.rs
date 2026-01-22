@@ -215,7 +215,7 @@ fn main() {
 
     // Calculate all reports using filtered analysis_files
     let integrity_stats = stats::calculate_integrity_stats(&analysis_files, tiny_threshold);
-    let gap_report = gap_analysis::find_gaps(&analysis_files, &line_id);
+    let gap_report = gap_analysis::find_gaps(&files, &line_id);
     let estimates_report = estimates::calculate_estimates(
         &search_dir,
         &analysis_files,
@@ -299,7 +299,7 @@ fn main() {
         stats::print_integrity_table(&integrity_stats);
 
         println!("\n{}", "=== Missing Daily Archives ===".cyan());
-        gap_analysis::analyze_gaps(&analysis_files, &line_id);
+        gap_analysis::analyze_gaps(&files, &line_id);
 
         println!("\n{}", "=== Directory Size Anomalies ===".cyan());
         stats::print_anomalies(&anomalies_report);
@@ -513,7 +513,7 @@ fn collect_audit_data(
     );
 
     let integrity_stats = stats::calculate_integrity_stats(&analysis_files, tiny_threshold);
-    let gap_report = gap_analysis::find_gaps(&analysis_files, line_id);
+    let gap_report = gap_analysis::find_gaps(&files, line_id);
     let estimates_report = estimates::calculate_estimates(
         &search_dir,
         &analysis_files,
