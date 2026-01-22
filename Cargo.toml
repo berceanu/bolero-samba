@@ -11,6 +11,8 @@ comfy-table = "7.2.2"
 human_bytes = "0.4.3"
 walkdir = "2.5"
 lettre = { version = "0.11.19", default-features = false, features = ["builder", "hostname", "file-transport", "smtp-transport", "rustls-tls"] }
+log = "0.4.29"
+env_logger = "0.11.8"
 
 [dev-dependencies]
 tempfile = "3.24.0"
