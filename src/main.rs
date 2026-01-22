@@ -12,6 +12,7 @@ use clap::Parser;
 use colored::Colorize;
 use log::{debug, error, info, warn};
 use std::collections::HashSet;
+use std::collections::HashMap;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -49,6 +50,10 @@ struct Args {
     /// Maximum number of bad ZIP files to display per archive directory
     #[arg(long, default_value_t = 3)]
     max_bad_per_archive: usize,
+
+    /// Threshold for detecting small archives (fraction of median, e.g., 0.85 = 85%)
+    #[arg(long, default_value_t = 0.85)]
+    anomaly_threshold: f64,
 }
 
 fn main() {
@@ -67,7 +72,7 @@ fn main() {
 
     // Dashboard mode - generate both lines
     if let Some(output_file) = &args.dashboard {
-        generate_dashboard(output_file, &args.base_dir, args.alert_threshold, args.max_bad_per_archive);
+        generate_dashboard(output_file, &args.base_dir, args.alert_threshold, args.max_bad_per_archive, args.anomaly_threshold);
         return;
     }
 
@@ -215,7 +220,13 @@ fn main() {
         speed_bps,
         &args.base_dir,
     );
-    let anomalies_report = stats::calculate_anomalies(&analysis_files);
+    // Filter dirs_t2 to exclude growing directories for anomaly detection
+    let stable_dirs: std::collections::HashMap<String, u64> = dirs_t2
+        .iter()
+        .filter(|(dir, _)| !growing_dirs.contains(*dir))
+        .map(|(k, v)| (k.clone(), *v))
+        .collect();
+    let anomalies_report = stats::calculate_anomalies(&stable_dirs, args.anomaly_threshold);
     let bad_files_report = stats::collect_bad_files(&analysis_files, &line_id, args.max_bad_per_archive);
 
     // Output based on mode
@@ -293,7 +304,7 @@ fn main() {
     }
 }
 
-fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64, max_bad_per_archive: usize) {
+fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64, max_bad_per_archive: usize, anomaly_threshold: f64) {
     // Acquire lock to prevent concurrent runs
     let lockfile = "/tmp/beam_audit_dashboard.lock";
     debug!("Attempting to acquire lock: {}", lockfile);
@@ -313,8 +324,8 @@ fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64, m
     // Generate reports for both lines IN PARALLEL
     let result = std::panic::catch_unwind(|| {
         thread::scope(|s| {
-            let handle_a = s.spawn(|| collect_audit_data("A", base_dir, true, alert_threshold, max_bad_per_archive));
-            let handle_b = s.spawn(|| collect_audit_data("B", base_dir, true, alert_threshold, max_bad_per_archive));
+            let handle_a = s.spawn(|| collect_audit_data("A", base_dir, true, alert_threshold, max_bad_per_archive, anomaly_threshold));
+            let handle_b = s.spawn(|| collect_audit_data("B", base_dir, true, alert_threshold, max_bad_per_archive, anomaly_threshold));
 
             (handle_a.join().unwrap(), handle_b.join().unwrap())
         })
@@ -375,6 +386,7 @@ fn collect_audit_data(
     silent: bool,
     alert_threshold: u64,
     max_bad_per_archive: usize,
+    anomaly_threshold: f64,
 ) -> html_renderer::AuditReport {
     let search_dir = format!("{}/Line {}", base_dir, line_id);
     let tiny_threshold = 1000;
@@ -480,7 +492,13 @@ fn collect_audit_data(
         speed_bps,
         base_dir,
     );
-    let anomalies_report = stats::calculate_anomalies(&analysis_files);
+    // Filter dirs_t2 to exclude growing directories for anomaly detection
+    let stable_dirs: HashMap<String, u64> = dirs_t2
+        .iter()
+        .filter(|(dir, _)| !growing_dirs.contains(*dir))
+        .map(|(k, v)| (k.clone(), *v))
+        .collect();
+    let anomalies_report = stats::calculate_anomalies(&stable_dirs, anomaly_threshold);
     let bad_files_report = stats::collect_bad_files(&analysis_files, line_id, max_bad_per_archive);
 
     // Return AuditReport

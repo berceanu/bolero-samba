@@ -283,12 +283,7 @@ pub fn print_integrity_table(stats_opt: &Option<IntegrityStats>) {
 }
 
 #[must_use]
-pub fn calculate_anomalies(files: &[FileEntry]) -> Option<AnomalyReport> {
-    let mut dirs: HashMap<String, u64> = HashMap::new();
-    for f in files {
-        *dirs.entry(f.parent_dir.clone()).or_default() += f.size;
-    }
-
+pub fn calculate_anomalies(dirs: &HashMap<String, u64>, threshold: f64) -> Option<AnomalyReport> {
     let mut sizes: Vec<u64> = dirs.values().copied().collect();
     if sizes.is_empty() {
         return None;
@@ -303,32 +298,25 @@ pub fn calculate_anomalies(files: &[FileEntry]) -> Option<AnomalyReport> {
     };
 
     let mut anomalies = Vec::new();
-    let mut sorted_dirs: Vec<_> = dirs.into_iter().collect();
+    let mut sorted_dirs: Vec<_> = dirs.iter().collect();
     sorted_dirs.sort_by_key(|k| k.0.clone());
 
-    if let Some(last) = sorted_dirs.last() {
-        let last_name = last.0.clone();
-        for (name, size) in sorted_dirs {
-            if name == last_name {
-                continue;
-            }
+    for (name, size) in sorted_dirs {
+        let s = *size as f64;
+        let m = median as f64;
 
-            let s = size as f64;
-            let m = median as f64;
-
-            if s < m * 0.8 {
-                anomalies.push(Anomaly {
-                    name,
-                    size,
-                    category: "Too Small".to_string(),
-                });
-            } else if s > m * 1.2 {
-                anomalies.push(Anomaly {
-                    name,
-                    size,
-                    category: "Too Large".to_string(),
-                });
-            }
+        if s < m * threshold {
+            anomalies.push(Anomaly {
+                name: name.clone(),
+                size: *size,
+                category: "Too Small".to_string(),
+            });
+        } else if s > m * 1.2 {
+            anomalies.push(Anomaly {
+                name: name.clone(),
+                size: *size,
+                category: "Too Large".to_string(),
+            });
         }
     }
 
