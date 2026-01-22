@@ -109,14 +109,17 @@ fn main() {
     let current_state = if speed_bps > 0 { "ACTIVE" } else { "IDLE" };
     let prev_state = fs::read_to_string(&state_file).unwrap_or_else(|_| "IDLE".to_string());
     let prev_state = prev_state.trim();
+    debug!("Line {}: Read previous state: {}", line_id, prev_state);
 
     // Timestamp Logic
     if current_state != prev_state || !std::path::Path::new(&since_file).exists() {
         let now_str = Local::now().format("%Y-%m-%d %H:%M").to_string();
+        debug!("Line {}: Writing since timestamp: {}", line_id, now_str);
         fs::write(&since_file, &now_str).ok();
     }
     let since_ts = fs::read_to_string(&since_file).unwrap_or_default();
     let since_ts = since_ts.trim().to_string();
+    debug!("Line {}: Read since timestamp: {}", line_id, since_ts);
 
     // Get recent files
     let recents = scanner::get_recent_files(&search_dir, 5);
@@ -238,8 +241,12 @@ fn main() {
 fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64) {
     // Acquire lock to prevent concurrent runs
     let lockfile = "/tmp/beam_audit_dashboard.lock";
+    debug!("Attempting to acquire lock: {}", lockfile);
     let _lock = match acquire_lock(lockfile) {
-        Ok(l) => l,
+        Ok(l) => {
+            debug!("Lock acquired successfully");
+            l
+        }
         Err(e) => {
             error!("Another instance is already running: {}", e);
             std::process::exit(1);
@@ -261,6 +268,7 @@ fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64) {
     let (line_a_report, line_b_report) = if let Ok(reports) = result {
         reports
     } else {
+        debug!("Removing lock file due to error");
         fs::remove_file(lockfile).ok();
         error!("Error during audit data collection");
         std::process::exit(1);
@@ -270,13 +278,16 @@ fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64) {
     let html = html_renderer::render_dashboard(&line_a_report, &line_b_report);
 
     // Write to file
+    debug!("Writing dashboard HTML to: {}", output_file);
     if let Err(e) = fs::write(output_file, html) {
         error!("Error writing dashboard to {}: {}", output_file, e);
+        debug!("Removing lock file due to error");
         fs::remove_file(lockfile).ok();
         std::process::exit(1);
     }
 
     info!("Dashboard written to: {}", output_file);
+    debug!("Removing lock file");
     fs::remove_file(lockfile).ok();
 }
 
@@ -329,13 +340,16 @@ fn collect_audit_data(
     let current_state = if speed_bps > 0 { "ACTIVE" } else { "IDLE" };
     let prev_state = fs::read_to_string(&state_file).unwrap_or_else(|_| "IDLE".to_string());
     let prev_state = prev_state.trim();
+    debug!("Line {}: Read previous state: {}", line_id, prev_state);
 
     if current_state != prev_state || !std::path::Path::new(&since_file).exists() {
         let now_str = Local::now().format("%Y-%m-%d %H:%M").to_string();
+        debug!("Line {}: Writing since timestamp: {}", line_id, now_str);
         fs::write(&since_file, &now_str).ok();
     }
     let since_ts = fs::read_to_string(&since_file).unwrap_or_default();
     let since_ts = since_ts.trim().to_string();
+    debug!("Line {}: Read since timestamp: {}", line_id, since_ts);
 
     let recents = scanner::get_recent_files(&search_dir, 5);
 
@@ -387,8 +401,12 @@ fn log_state_change(
         timestamp, old_state, new_state, speed_mbps
     );
 
+    debug!("Line {}: Appending to interruption log: {}", line_id, log_file);
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_file) {
         let _ = file.write_all(log_entry.as_bytes());
+        debug!("Line {}: Interruption log entry written", line_id);
+    } else {
+        error!("Line {}: Failed to write to interruption log", line_id);
     }
 }
 
@@ -493,6 +511,7 @@ fn check_and_send_alerts(
     alert_threshold: u64,
 ) {
     let files = get_alert_file_paths(base_dir, line_id);
+    debug!("Line {}: Reading timestamp file for alert check", line_id);
     let timestamp_content = fs::read_to_string(&files.timestamp_file).ok();
 
     // Use pure function to determine what action to take
@@ -509,6 +528,7 @@ fn check_and_send_alerts(
         AlertAction::NoAction => {
             // State unchanged, no pending alert - just update state file
             debug!("Line {}: State unchanged ({})", line_id, current_state);
+            debug!("Line {}: Writing state file", line_id);
             fs::write(&files.state_file, current_state).ok();
         }
         AlertAction::CreateTimestamp => {
@@ -517,12 +537,14 @@ fn check_and_send_alerts(
             log_state_change(base_dir, line_id, prev_state, current_state, speed_mib);
             let timestamp_str = Local::now().format("%Y-%m-%d %H:%M").to_string();
             debug!("Line {}: Created state change timestamp file", line_id);
+            debug!("Line {}: Writing timestamp and state files", line_id);
             fs::write(&files.timestamp_file, timestamp_str).ok();
             fs::write(&files.state_file, current_state).ok();
         }
         AlertAction::WaitForThreshold => {
             // Waiting for threshold - just update state file
             debug!("Line {}: Waiting for alert threshold (state: {})", line_id, current_state);
+            debug!("Line {}: Writing state file", line_id);
             fs::write(&files.state_file, current_state).ok();
         }
         AlertAction::SendAlert { minutes_elapsed } => {
