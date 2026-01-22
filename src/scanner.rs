@@ -20,7 +20,7 @@ pub fn get_total_size(path: &str) -> u64 {
 }
 
 #[must_use]
-pub fn scan_files(path: &str) -> Vec<FileEntry> {
+pub fn scan_files(path: &str, silent: bool) -> Vec<FileEntry> {
     // 1. Collect all ZIP files into a vector (Sequential Walk)
     let entries: Vec<_> = WalkDir::new(path)
         .into_iter()
@@ -40,7 +40,7 @@ pub fn scan_files(path: &str) -> Vec<FileEntry> {
         .into_iter()
         .enumerate()
         .map(|(i, entry)| {
-            if i % 50 == 0 || i == total_files - 1 {
+            if !silent && (i % 50 == 0 || i == total_files - 1) {
                 print!("\r  Verifying files: {}/{}:..", i + 1, total_files);
                 std::io::stdout().flush().ok();
             }
@@ -81,7 +81,6 @@ pub fn scan_files(path: &str) -> Vec<FileEntry> {
         })
         .collect();
 
-    println!(); // New line after progress
     results
 }
 

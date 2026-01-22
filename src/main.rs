@@ -87,21 +87,14 @@ fn main() {
             )
             .cyan()
         );
-        println!("Step 1/3: Calculating initial directory size...");
     }
 
     let size_t1 = scanner::get_total_size(&search_dir);
 
-    if !args.html {
-        println!("Step 2/3: Monitoring transfer speed (10s)...");
-    }
     thread::sleep(Duration::from_secs(10));
     let size_t2 = scanner::get_total_size(&search_dir);
 
-    if !args.html {
-        println!("Step 3/3: Verifying file integrity and analyzing stats...");
-    }
-    let files = scanner::scan_files(&search_dir);
+    let files = scanner::scan_files(&search_dir, false);
     let total_zip_files = files.len();
 
     // Speed Calc
@@ -319,21 +312,12 @@ fn collect_audit_data(
     let search_dir = format!("{}/Line {}", base_dir, line_id);
     let tiny_threshold = 1000;
 
-    if !silent {
-        println!("Step 1/3: Calculating initial directory size...");
-    }
     let size_t1 = scanner::get_total_size(&search_dir);
 
-    if !silent {
-        println!("Step 2/3: Monitoring transfer speed (10s)...");
-    }
     thread::sleep(Duration::from_secs(10));
     let size_t2 = scanner::get_total_size(&search_dir);
 
-    if !silent {
-        println!("Step 3/3: Verifying file integrity and analyzing stats...");
-    }
-    let files = scanner::scan_files(&search_dir);
+    let files = scanner::scan_files(&search_dir, silent);
     let total_zip_files = files.len();
 
     let delta_bytes = size_t2.saturating_sub(size_t1);
