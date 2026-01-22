@@ -7,7 +7,7 @@ mod stats;
 mod system_io;
 mod types;
 
-use chrono::Local;
+use chrono::{Local, NaiveDate};
 use clap::Parser;
 use colored::Colorize;
 use log::{debug, error, info, warn};
@@ -54,6 +54,61 @@ struct Args {
     /// Threshold for detecting small archives (fraction of median, e.g., 0.85 = 85%)
     #[arg(long, default_value_t = 0.85)]
     anomaly_threshold: f64,
+
+    /// Start date for transfer window (YYYY-MM-DD). Conflicts with --read-dates-from.
+    #[arg(long, value_name = "DATE", conflicts_with = "read_dates_from")]
+    start_date: Option<String>,
+
+    /// End date for transfer window (YYYY-MM-DD). Conflicts with --read-dates-from.
+    #[arg(long, value_name = "DATE", conflicts_with = "read_dates_from")]
+    end_date: Option<String>,
+
+    /// Read start and end dates from PowerShell script. Conflicts with --start-date and --end-date.
+    #[arg(long, value_name = "SCRIPT_PATH", conflicts_with_all = ["start_date", "end_date"])]
+    read_dates_from: Option<String>,
+}
+
+/// Resolve date range from CLI arguments with priority: CLI flags > Script > Defaults
+fn resolve_date_range(args: &Args) -> (NaiveDate, NaiveDate) {
+    // Default dates
+    let default_start = NaiveDate::from_ymd_opt(2024, 7, 29).unwrap();
+    let default_end = NaiveDate::from_ymd_opt(2025, 12, 12).unwrap();
+
+    // Priority 1: Explicit CLI flags
+    if let (Some(start_str), Some(end_str)) = (&args.start_date, &args.end_date) {
+        let start = NaiveDate::parse_from_str(start_str, "%Y-%m-%d")
+            .unwrap_or_else(|_| {
+                eprintln!("Error: Invalid start date format '{}'. Use YYYY-MM-DD.", start_str);
+                std::process::exit(1);
+            });
+        let end = NaiveDate::parse_from_str(end_str, "%Y-%m-%d")
+            .unwrap_or_else(|_| {
+                eprintln!("Error: Invalid end date format '{}'. Use YYYY-MM-DD.", end_str);
+                std::process::exit(1);
+            });
+        return (start, end);
+    }
+
+    // Handle partial CLI flags (one but not both)
+    if args.start_date.is_some() || args.end_date.is_some() {
+        eprintln!("Error: Both --start-date and --end-date must be provided together.");
+        std::process::exit(1);
+    }
+
+    // Priority 2: Read from PowerShell script
+    if let Some(ref script_path) = args.read_dates_from {
+        if let Some((start, end)) = estimates::get_date_range_from_script(Some(script_path)) {
+            info!("Using date range from script: {} to {}", start, end);
+            return (start, end);
+        } else {
+            eprintln!("Error: Could not parse dates from script: {}", script_path);
+            std::process::exit(1);
+        }
+    }
+
+    // Priority 3: Use defaults
+    debug!("Using default date range: {} to {}", default_start, default_end);
+    (default_start, default_end)
 }
 
 fn main() {
@@ -88,6 +143,9 @@ fn main() {
         eprintln!("Error: Invalid Line ID '{line_id}'. Use 'A' or 'B'.");
         std::process::exit(1);
     }
+
+    // Resolve date range from CLI args or defaults
+    let (start_date, end_date) = resolve_date_range(&args);
 
     let search_dir = format!("{}/Line {}", args.base_dir, line_id);
     let tiny_threshold = 1000;
@@ -224,7 +282,8 @@ fn main() {
         &line_id,
         size_t2,
         speed_bps,
-        &args.base_dir,
+        start_date,
+        end_date,
     );
     // Filter dirs_t2 to exclude growing directories for anomaly detection
     let stable_dirs: std::collections::HashMap<String, u64> = dirs_t2
@@ -320,6 +379,10 @@ fn generate_dashboard(
     max_bad_per_archive: usize,
     anomaly_threshold: f64,
 ) {
+    // Use default dates for dashboard mode (no CLI args available here)
+    let default_start = NaiveDate::from_ymd_opt(2024, 7, 29).unwrap();
+    let default_end = NaiveDate::from_ymd_opt(2025, 12, 12).unwrap();
+
     // Acquire lock to prevent concurrent runs
     let lockfile = "/tmp/beam_audit_dashboard.lock";
     debug!("Attempting to acquire lock: {}", lockfile);
@@ -347,6 +410,8 @@ fn generate_dashboard(
                     alert_threshold,
                     max_bad_per_archive,
                     anomaly_threshold,
+                    default_start,
+                    default_end,
                 )
             });
             let handle_b = s.spawn(|| {
@@ -357,6 +422,8 @@ fn generate_dashboard(
                     alert_threshold,
                     max_bad_per_archive,
                     anomaly_threshold,
+                    default_start,
+                    default_end,
                 )
             });
 
@@ -420,6 +487,8 @@ fn collect_audit_data(
     alert_threshold: u64,
     max_bad_per_archive: usize,
     anomaly_threshold: f64,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
 ) -> html_renderer::AuditReport {
     let search_dir = format!("{}/Line {}", base_dir, line_id);
     let tiny_threshold = 1000;
@@ -523,7 +592,8 @@ fn collect_audit_data(
         line_id,
         size_t2,
         speed_bps,
-        base_dir,
+        start_date,
+        end_date,
     );
     // Filter dirs_t2 to exclude growing directories for anomaly detection
     let stable_dirs: HashMap<String, u64> = dirs_t2

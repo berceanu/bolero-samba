@@ -31,13 +31,10 @@ pub fn calculate_estimates(
     line_id: &str,
     _size_t2: u64,
     speed_bps: u64,
-    base_dir: &str,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
 ) -> Option<EstimatesReport> {
-    // 1. Parse Config
-    let config_path = format!("{}/Transfer.ps1", base_dir);
-    let (start_date, end_date) = parse_config(&config_path)?;
-
-    // 2. Determine active copying state and last completed date
+    // Determine active copying state and last completed date
     let is_active = speed_bps > 0 && !growing_dirs.is_empty();
 
     // What's being copied RIGHT NOW (only when active)
@@ -239,16 +236,21 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
     }
 }
 
-fn parse_config(path: &str) -> Option<(NaiveDate, NaiveDate)> {
+/// Parse start and end dates from a PowerShell script
+/// Used by CLI --read-dates-from flag and by tests
+pub fn parse_config(path: &str) -> Option<(NaiveDate, NaiveDate)> {
     let content = fs::read_to_string(path).ok()?;
 
     let mut start = None;
     let mut end = None;
 
     for line in content.lines() {
-        if start.is_none() && line.contains("$startDate") {
+        let line_lower = line.to_lowercase();
+        
+        // Match both $StartDate (parameter) and $startDate (variable)
+        if start.is_none() && line_lower.contains("$startdate") {
             start = extract_date_from_ps1(line);
-        } else if end.is_none() && line.contains("$endDate") {
+        } else if end.is_none() && line_lower.contains("$enddate") {
             end = extract_date_from_ps1(line);
         }
     }
@@ -257,6 +259,11 @@ fn parse_config(path: &str) -> Option<(NaiveDate, NaiveDate)> {
         (Some(s), Some(e)) => Some((s, e)),
         _ => None,
     }
+}
+
+/// Parse dates from script path (convenience wrapper for CLI usage)
+pub fn get_date_range_from_script(script_path: Option<&str>) -> Option<(NaiveDate, NaiveDate)> {
+    script_path.and_then(parse_config)
 }
 
 fn extract_date_from_ps1(line: &str) -> Option<NaiveDate> {
