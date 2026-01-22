@@ -11,8 +11,9 @@ pub struct EmailConfig {
 
 impl EmailConfig {
     #[must_use]
-    pub fn load() -> Option<Self> {
-        let content = fs::read_to_string(".email_config").ok()?;
+    pub fn load(base_dir: &str) -> Option<Self> {
+        let config_path = format!("{}/.email_config", base_dir);
+        let content = fs::read_to_string(&config_path).ok()?;
         let mut map = HashMap::new();
 
         for line in content.lines() {
