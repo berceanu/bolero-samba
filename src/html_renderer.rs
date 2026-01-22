@@ -407,7 +407,8 @@ fn render_bad_files_section(report: &AuditReport) -> String {
             bad_report.total_count, archive_count
         ));
 
-        for (folder, files, total_in_dir) in &bad_report.files_by_folder {
+        // Filter to show only archives with more than 3 bad files
+        for (folder, files, total_in_dir) in bad_report.files_by_folder.iter().filter(|(_, _, count)| *count > 3) {
             // Display count based on whether truncation occurred
             let folder_header = if *total_in_dir > files.len() {
                 format!(

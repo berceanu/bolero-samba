@@ -448,7 +448,8 @@ pub fn print_bad_files(report: &Option<BadFilesReport>) {
             r.total_count, archive_count
         );
 
-        for (folder, files, total_in_dir) in &r.files_by_folder {
+        // Filter to show only archives with more than 3 bad files
+        for (folder, files, total_in_dir) in r.files_by_folder.iter().filter(|(_, _, count)| *count > 3) {
             // Display count based on whether truncation occurred
             if *total_in_dir > files.len() {
                 println!(
