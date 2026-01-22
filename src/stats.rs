@@ -51,7 +51,7 @@ pub struct BadFile {
 #[derive(Debug)]
 pub struct BadFilesReport {
     pub total_count: usize,
-    pub files_by_folder: Vec<(String, Vec<BadFile>)>, // (folder_name, bad_files)
+    pub files_by_folder: Vec<(String, Vec<BadFile>, usize)>, // (folder_name, displayed_files, total_in_folder)
 }
 
 #[must_use]
@@ -393,7 +393,7 @@ pub fn print_anomalies(report: &Option<AnomalyReport>) {
 }
 
 #[must_use]
-pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesReport> {
+pub fn collect_bad_files(files: &[FileEntry], line_id: &str, max_per_archive: usize) -> Option<BadFilesReport> {
     // Files are already filtered to exclude growing directories
     let bad_files: Vec<&FileEntry> = files.iter().filter(|f| !f.is_valid).collect();
 
@@ -403,11 +403,10 @@ pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesR
 
     let total_count = bad_files.len();
 
-    // Group by parent_dir (folder)
+    // Group by parent_dir (folder) with all bad files
     let mut by_folder: HashMap<String, Vec<BadFile>> = HashMap::new();
 
-    for file in bad_files.iter().take(50) {
-        // Limit to 50
+    for file in bad_files {
         let relative_path = format!("Line {}/{}/{}", line_id, file.parent_dir, file.name);
         let reason = file
             .invalid_reason
@@ -426,8 +425,19 @@ pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesR
             .push(bad_file);
     }
 
-    // Convert to sorted vec
-    let mut files_by_folder: Vec<(String, Vec<BadFile>)> = by_folder.into_iter().collect();
+    // Convert to sorted vec and apply per-directory truncation
+    let mut files_by_folder: Vec<(String, Vec<BadFile>, usize)> = by_folder
+        .into_iter()
+        .map(|(dir, mut files)| {
+            let total_in_dir = files.len();
+            // Sort lexicographically by relative_path
+            files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+            // Truncate to max_per_archive
+            files.truncate(max_per_archive);
+            (dir, files, total_in_dir)
+        })
+        .collect();
+    // Sort directories lexicographically
     files_by_folder.sort_by(|a, b| a.0.cmp(&b.0));
 
     Some(BadFilesReport {
@@ -440,27 +450,35 @@ pub fn print_bad_files(report: &Option<BadFilesReport>) {
     if let Some(r) = report {
         println!("\n{}", "=== Bad ZIP Files ===".cyan());
 
-        let displayed_count = r
-            .files_by_folder
-            .iter()
-            .map(|(_, files)| files.len())
-            .sum::<usize>();
+        let archive_count = r.files_by_folder.len();
+        println!(
+            "Found {} bad ZIP files across {} archives:",
+            r.total_count, archive_count
+        );
 
-        if r.total_count > displayed_count {
-            println!(
-                "Found {} bad ZIP files, here are the first {}:",
-                r.total_count, displayed_count
-            );
-        } else {
-            println!("Found {} bad ZIP files:", r.total_count);
-        }
+        for (folder, files, total_in_dir) in &r.files_by_folder {
+            // Display count based on whether truncation occurred
+            if *total_in_dir > files.len() {
+                println!(
+                    "\n{} ({} bad files, showing first {})",
+                    folder.yellow(),
+                    total_in_dir,
+                    files.len()
+                );
+            } else {
+                println!("\n{} ({} bad files)", folder.yellow(), total_in_dir);
+            }
 
-        for (folder, files) in &r.files_by_folder {
-            println!("\n{}", folder.yellow());
             for file in files {
                 println!("  {} {}", "⚠️".yellow(), file.relative_path);
                 println!("     Size: {}", human_bytes::human_bytes(file.size as f64));
                 println!("     Reason: {}", file.reason.red());
+            }
+
+            // Show truncation message if needed
+            if *total_in_dir > files.len() {
+                let remaining = total_in_dir - files.len();
+                println!("  ... {} more bad files in this archive", remaining);
             }
         }
     }

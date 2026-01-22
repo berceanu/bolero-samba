@@ -401,28 +401,23 @@ fn render_bad_files_section(report: &AuditReport) -> String {
     if let Some(bad_report) = &report.bad_files_report {
         html.push_str(r#"<div class="section"><h3 class="section-title">Bad ZIP Files</h3>"#);
 
-        let displayed_count = bad_report
-            .files_by_folder
-            .iter()
-            .map(|(_, files)| files.len())
-            .sum::<usize>();
+        let archive_count = bad_report.files_by_folder.len();
+        html.push_str(&format!(
+            r#"<p>Found {} bad ZIP files across {} archives:</p>"#,
+            bad_report.total_count, archive_count
+        ));
 
-        if bad_report.total_count > displayed_count {
-            html.push_str(&format!(
-                r#"<p>Found {} bad ZIP files, here are the first {}:</p>"#,
-                bad_report.total_count, displayed_count
-            ));
-        } else {
-            html.push_str(&format!(
-                r#"<p>Found {} bad ZIP files:</p>"#,
-                bad_report.total_count
-            ));
-        }
-
-        for (folder, files) in &bad_report.files_by_folder {
+        for (folder, files, total_in_dir) in &bad_report.files_by_folder {
+            // Display count based on whether truncation occurred
+            let folder_header = if *total_in_dir > files.len() {
+                format!("{} ({} bad files, showing first {})", folder, total_in_dir, files.len())
+            } else {
+                format!("{} ({} bad files)", folder, total_in_dir)
+            };
+            
             html.push_str(&format!(
                 r#"<h4 style="color: #ffd700; margin: 15px 0 10px 0;">{}</h4>"#,
-                escape_html(folder)
+                escape_html(&folder_header)
             ));
 
             for file in files {
@@ -435,6 +430,15 @@ fn render_bad_files_section(report: &AuditReport) -> String {
                     escape_html(&file.relative_path),
                     human_bytes::human_bytes(file.size as f64),
                     escape_html(&file.reason)
+                ));
+            }
+            
+            // Show truncation message if needed
+            if *total_in_dir > files.len() {
+                let remaining = total_in_dir - files.len();
+                html.push_str(&format!(
+                    r#"<p style="margin: 10px 0 10px 20px; font-style: italic; color: #888;">... {} more bad files in this archive</p>"#,
+                    remaining
                 ));
             }
         }

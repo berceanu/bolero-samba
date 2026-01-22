@@ -347,18 +347,35 @@ mod tests {
     }
 
     #[test]
-    fn test_get_current_copy_date() {
-        // Case 1: Active Transfer (Recent file exists)
-        let now = Local::now();
-        let recent_time = now - chrono::Duration::minutes(2);
+    fn test_extract_date_from_dirname() {
+        // Test valid date extraction
+        assert_eq!(
+            extract_date_from_dirname("Archive_Beam_B_2024-08-01", "B"),
+            Some(NaiveDate::parse_from_str("2024-08-01", "%Y-%m-%d").unwrap())
+        );
+        
+        assert_eq!(
+            extract_date_from_dirname("Archive_Beam_A_2024-12-25", "A"),
+            Some(NaiveDate::parse_from_str("2024-12-25", "%Y-%m-%d").unwrap())
+        );
+        
+        // Test invalid formats
+        assert_eq!(extract_date_from_dirname("Archive_Beam_B_invalid", "B"), None);
+        assert_eq!(extract_date_from_dirname("SomeOtherDir_2024-08-01", "B"), None);
+        
+        // Test wrong line ID
+        assert_eq!(extract_date_from_dirname("Archive_Beam_A_2024-08-01", "B"), None);
+    }
 
-        let files_active = vec![
+    #[test]
+    fn test_get_last_completed_date() {
+        let files = vec![
             FileEntry {
                 name: "file1.zip".to_string(),
                 size: 100,
                 is_valid: true,
                 invalid_reason: None,
-                modified: recent_time,
+                modified: chrono::Local::now(),
                 parent_dir: "Archive_Beam_B_2024-08-01".to_string(),
             },
             FileEntry {
@@ -366,42 +383,24 @@ mod tests {
                 size: 100,
                 is_valid: true,
                 invalid_reason: None,
-                modified: now - chrono::Duration::hours(1), // Old
-                parent_dir: "Archive_Beam_B_2024-07-31".to_string(),
-            },
-        ];
-
-        let date_active = get_current_copy_date(&files_active, "B", ".");
-        assert_eq!(
-            date_active,
-            Some(NaiveDate::parse_from_str("2024-08-01", "%Y-%m-%d").unwrap())
-        );
-
-        // Case 2: No Active Transfer (Use latest folder)
-        let files_idle = vec![
-            FileEntry {
-                name: "file1.zip".to_string(),
-                size: 100,
-                is_valid: true,
-                invalid_reason: None,
-                modified: now - chrono::Duration::hours(2),
+                modified: chrono::Local::now(),
                 parent_dir: "Archive_Beam_B_2024-07-31".to_string(),
             },
             FileEntry {
-                name: "file2.zip".to_string(),
+                name: "file3.zip".to_string(),
                 size: 100,
                 is_valid: true,
                 invalid_reason: None,
-                modified: now - chrono::Duration::hours(3),
-                parent_dir: "Archive_Beam_B_2024-08-02".to_string(),
+                modified: chrono::Local::now(),
+                parent_dir: "Archive_Beam_B_2024-08-05".to_string(),
             },
         ];
-
-        let date_idle = get_current_copy_date(&files_idle, "B", ".");
-        // Should pick 2024-08-02 as it is the latest folder date in the list
+        
+        // Should return the latest date from all directories
+        let result = get_last_completed_date(&files, "B");
         assert_eq!(
-            date_idle,
-            Some(NaiveDate::parse_from_str("2024-08-02", "%Y-%m-%d").unwrap())
+            result,
+            Some(NaiveDate::parse_from_str("2024-08-05", "%Y-%m-%d").unwrap())
         );
     }
 

@@ -45,6 +45,10 @@ struct Args {
     /// Minimum minutes a state must persist before sending email alert
     #[arg(long, default_value_t = 20)]
     alert_threshold: u64,
+
+    /// Maximum number of bad ZIP files to display per archive directory
+    #[arg(long, default_value_t = 3)]
+    max_bad_per_archive: usize,
 }
 
 fn main() {
@@ -63,7 +67,7 @@ fn main() {
 
     // Dashboard mode - generate both lines
     if let Some(output_file) = &args.dashboard {
-        generate_dashboard(output_file, &args.base_dir, args.alert_threshold);
+        generate_dashboard(output_file, &args.base_dir, args.alert_threshold, args.max_bad_per_archive);
         return;
     }
 
@@ -212,7 +216,7 @@ fn main() {
         &args.base_dir,
     );
     let anomalies_report = stats::calculate_anomalies(&analysis_files);
-    let bad_files_report = stats::collect_bad_files(&analysis_files, &line_id);
+    let bad_files_report = stats::collect_bad_files(&analysis_files, &line_id, args.max_bad_per_archive);
 
     // Output based on mode
     if args.html {
@@ -282,14 +286,14 @@ fn main() {
         println!("\n{}", "=== Directory Size Anomalies ===".cyan());
         stats::print_anomalies(&anomalies_report);
 
-        let bad_files_report = stats::collect_bad_files(&analysis_files, &line_id);
+        let bad_files_report = stats::collect_bad_files(&analysis_files, &line_id, args.max_bad_per_archive);
         stats::print_bad_files(&bad_files_report);
 
         println!("\n{}", "=== Audit Complete ===".cyan());
     }
 }
 
-fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64) {
+fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64, max_bad_per_archive: usize) {
     // Acquire lock to prevent concurrent runs
     let lockfile = "/tmp/beam_audit_dashboard.lock";
     debug!("Attempting to acquire lock: {}", lockfile);
@@ -309,8 +313,8 @@ fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64) {
     // Generate reports for both lines IN PARALLEL
     let result = std::panic::catch_unwind(|| {
         thread::scope(|s| {
-            let handle_a = s.spawn(|| collect_audit_data("A", base_dir, true, alert_threshold));
-            let handle_b = s.spawn(|| collect_audit_data("B", base_dir, true, alert_threshold));
+            let handle_a = s.spawn(|| collect_audit_data("A", base_dir, true, alert_threshold, max_bad_per_archive));
+            let handle_b = s.spawn(|| collect_audit_data("B", base_dir, true, alert_threshold, max_bad_per_archive));
 
             (handle_a.join().unwrap(), handle_b.join().unwrap())
         })
@@ -370,6 +374,7 @@ fn collect_audit_data(
     base_dir: &str,
     silent: bool,
     alert_threshold: u64,
+    max_bad_per_archive: usize,
 ) -> html_renderer::AuditReport {
     let search_dir = format!("{}/Line {}", base_dir, line_id);
     let tiny_threshold = 1000;
@@ -476,7 +481,7 @@ fn collect_audit_data(
         base_dir,
     );
     let anomalies_report = stats::calculate_anomalies(&analysis_files);
-    let bad_files_report = stats::collect_bad_files(&analysis_files, line_id);
+    let bad_files_report = stats::collect_bad_files(&analysis_files, line_id, max_bad_per_archive);
 
     // Return AuditReport
     html_renderer::AuditReport {
