@@ -39,7 +39,7 @@ pub fn calculate_estimates(
 
     // 2. Determine active copying state and last completed date
     let is_active = speed_bps > 0 && !growing_dirs.is_empty();
-    
+
     // What's being copied RIGHT NOW (only when active)
     let currently_copying = if is_active {
         growing_dirs
@@ -49,10 +49,10 @@ pub fn calculate_estimates(
     } else {
         None
     };
-    
+
     // What's the last completed date (from existing folders)
     let last_completed = get_last_completed_date(files, line_id);
-    
+
     // For progress calculations, use last_completed or start_date
     let progress_reference_date = last_completed.unwrap_or(start_date);
 

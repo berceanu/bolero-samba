@@ -449,7 +449,11 @@ pub fn print_bad_files(report: &Option<BadFilesReport>, threshold: usize) {
         );
 
         // Filter to show only archives with more than threshold bad files
-        for (folder, files, total_in_dir) in r.files_by_folder.iter().filter(|(_, _, count)| *count > threshold) {
+        for (folder, files, total_in_dir) in r
+            .files_by_folder
+            .iter()
+            .filter(|(_, _, count)| *count > threshold)
+        {
             // Display count based on whether truncation occurred
             if *total_in_dir > files.len() {
                 println!(

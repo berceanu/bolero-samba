@@ -142,7 +142,10 @@ pub fn render_full_report(report: &AuditReport) -> String {
     html.push_str(&render_anomalies_section(report));
 
     // Bad ZIP Files
-    html.push_str(&render_bad_files_section(report, report.max_bad_per_archive));
+    html.push_str(&render_bad_files_section(
+        report,
+        report.max_bad_per_archive,
+    ));
 
     html
 }
@@ -447,7 +450,11 @@ fn render_bad_files_section(report: &AuditReport, threshold: usize) -> String {
         ));
 
         // Filter to show only archives with more than threshold bad files
-        for (folder, files, total_in_dir) in bad_report.files_by_folder.iter().filter(|(_, _, count)| *count > threshold) {
+        for (folder, files, total_in_dir) in bad_report
+            .files_by_folder
+            .iter()
+            .filter(|(_, _, count)| *count > threshold)
+        {
             // Display count based on whether truncation occurred
             let folder_header = if *total_in_dir > files.len() {
                 format!(
