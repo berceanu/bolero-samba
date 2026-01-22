@@ -30,8 +30,12 @@ impl EmailConfig {
             smtp_user: (*map.get("SMTP_USER")?).to_string(),
             smtp_pass: (*map.get("SMTP_PASS")?).to_string(),
             recipient: (*map.get("RECIPIENT_EMAIL")?).to_string(),
-        }).inspect(|cfg| {
-            debug!("Email config loaded successfully (user: {}, recipient: {})", cfg.smtp_user, cfg.recipient);
+        })
+        .inspect(|cfg| {
+            debug!(
+                "Email config loaded successfully (user: {}, recipient: {})",
+                cfg.smtp_user, cfg.recipient
+            );
         })
     }
 }

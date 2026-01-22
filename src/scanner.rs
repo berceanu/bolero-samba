@@ -1,5 +1,6 @@
 use crate::types::FileEntry;
 use chrono::{DateTime, Local};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::os::unix::fs::MetadataExt;
@@ -7,16 +8,33 @@ use std::path::Path;
 use std::time::SystemTime;
 use walkdir::WalkDir;
 
-pub fn get_total_size(path: &str) -> u64 {
+pub fn get_total_and_per_dir_sizes(path: &str) -> (u64, HashMap<String, u64>) {
     // Use blocks() (512-byte blocks) instead of len() for accurate disk usage
     // This matches du behavior and detects active transfers immediately
+    let mut total = 0u64;
+    let mut per_dir: HashMap<String, u64> = HashMap::new();
+
     WalkDir::new(path)
         .into_iter()
         .filter_map(std::result::Result::ok)
-        .filter_map(|entry| entry.metadata().ok())
-        .filter(std::fs::Metadata::is_file)
-        .map(|m| m.blocks() * 512) // blocks() is in 512-byte units
-        .sum()
+        .for_each(|entry| {
+            if let Ok(metadata) = entry.metadata()
+                && metadata.is_file()
+            {
+                let size = metadata.blocks() * 512;
+                total += size;
+
+                // Extract parent directory name (e.g., "Archive_Beam_B_2024-10-01")
+                if let Some(parent) = entry.path().parent()
+                    && let Some(dir_name) = parent.file_name()
+                    && let Some(dir_str) = dir_name.to_str()
+                {
+                    *per_dir.entry(dir_str.to_string()).or_insert(0) += size;
+                }
+            }
+        });
+
+    (total, per_dir)
 }
 
 #[must_use]

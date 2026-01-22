@@ -11,6 +11,7 @@ use chrono::Local;
 use clap::Parser;
 use colored::Colorize;
 use log::{debug, error, info, warn};
+use std::collections::HashSet;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -89,13 +90,61 @@ fn main() {
         );
     }
 
-    let size_t1 = scanner::get_total_size(&search_dir);
+    let (size_t1, dirs_t1) = scanner::get_total_and_per_dir_sizes(&search_dir);
 
     thread::sleep(Duration::from_secs(10));
-    let size_t2 = scanner::get_total_size(&search_dir);
+    let (size_t2, dirs_t2) = scanner::get_total_and_per_dir_sizes(&search_dir);
 
     let files = scanner::scan_files(&search_dir, false);
     let total_zip_files = files.len();
+
+    // Identify growing directories (actively being copied)
+    let growing_dirs: HashSet<String> = dirs_t1
+        .keys()
+        .filter(|dir| {
+            let size_t1 = dirs_t1.get(*dir).unwrap_or(&0);
+            let size_t2 = dirs_t2.get(*dir).unwrap_or(&0);
+            let is_growing = size_t2 > size_t1;
+            if is_growing {
+                debug!(
+                    "Line {}: Growing directory detected: {} ({} -> {} bytes, delta: {} bytes)",
+                    line_id,
+                    dir,
+                    size_t1,
+                    size_t2,
+                    size_t2.saturating_sub(*size_t1)
+                );
+            }
+            is_growing
+        })
+        .cloned()
+        .collect();
+
+    debug!(
+        "Line {}: Total directories tracked: {}",
+        line_id,
+        dirs_t1.len()
+    );
+    debug!(
+        "Line {}: Growing directories: {}",
+        line_id,
+        growing_dirs.len()
+    );
+    debug!("Line {}: Growing dirs: {:?}", line_id, growing_dirs);
+
+    // Create filtered file list for analysis (exclude files from growing directories)
+    let analysis_files: Vec<_> = files
+        .iter()
+        .filter(|f| !growing_dirs.contains(&f.parent_dir))
+        .cloned()
+        .collect();
+
+    debug!(
+        "Line {}: Total files: {}, Analysis files: {}",
+        line_id,
+        files.len(),
+        analysis_files.len()
+    );
 
     // Speed Calc
     let delta_bytes = size_t2.saturating_sub(size_t1);
@@ -121,7 +170,7 @@ fn main() {
     let since_ts = since_ts.trim().to_string();
     debug!("Line {}: Read since timestamp: {}", line_id, since_ts);
 
-    // Get recent files
+    // Get recent files (use all files for visibility into active transfers)
     let recents = scanner::get_recent_files(&search_dir, 5);
 
     // Redundancy check (only in terminal mode for now)
@@ -149,19 +198,19 @@ fn main() {
         );
     }
 
-    // Calculate all reports
-    let integrity_stats = stats::calculate_integrity_stats(&files, tiny_threshold);
-    let gap_report = gap_analysis::find_gaps(&files, &line_id);
+    // Calculate all reports using filtered analysis_files
+    let integrity_stats = stats::calculate_integrity_stats(&analysis_files, tiny_threshold);
+    let gap_report = gap_analysis::find_gaps(&analysis_files, &line_id);
     let estimates_report = estimates::calculate_estimates(
         &search_dir,
-        &files,
+        &analysis_files,
         &line_id,
         size_t2,
         speed_bps,
         &args.base_dir,
     );
-    let anomalies_report = stats::calculate_anomalies(&files);
-    let bad_files_report = stats::collect_bad_files(&files, &line_id);
+    let anomalies_report = stats::calculate_anomalies(&analysis_files);
+    let bad_files_report = stats::collect_bad_files(&analysis_files, &line_id);
 
     // Output based on mode
     if args.html {
@@ -226,12 +275,12 @@ fn main() {
         stats::print_integrity_table(&integrity_stats);
 
         println!("\n{}", "=== Missing Daily Archives ===".cyan());
-        gap_analysis::analyze_gaps(&files, &line_id);
+        gap_analysis::analyze_gaps(&analysis_files, &line_id);
 
         println!("\n{}", "=== Directory Size Anomalies ===".cyan());
         stats::print_anomalies(&anomalies_report);
 
-        let bad_files_report = stats::collect_bad_files(&files, &line_id);
+        let bad_files_report = stats::collect_bad_files(&analysis_files, &line_id);
         stats::print_bad_files(&bad_files_report);
 
         println!("\n{}", "=== Audit Complete ===".cyan());
@@ -323,13 +372,61 @@ fn collect_audit_data(
     let search_dir = format!("{}/Line {}", base_dir, line_id);
     let tiny_threshold = 1000;
 
-    let size_t1 = scanner::get_total_size(&search_dir);
+    let (size_t1, dirs_t1) = scanner::get_total_and_per_dir_sizes(&search_dir);
 
     thread::sleep(Duration::from_secs(10));
-    let size_t2 = scanner::get_total_size(&search_dir);
+    let (size_t2, dirs_t2) = scanner::get_total_and_per_dir_sizes(&search_dir);
 
     let files = scanner::scan_files(&search_dir, silent);
     let total_zip_files = files.len();
+
+    // Identify growing directories (actively being copied)
+    let growing_dirs: HashSet<String> = dirs_t1
+        .keys()
+        .filter(|dir| {
+            let size_t1 = dirs_t1.get(*dir).unwrap_or(&0);
+            let size_t2 = dirs_t2.get(*dir).unwrap_or(&0);
+            let is_growing = size_t2 > size_t1;
+            if is_growing {
+                debug!(
+                    "Line {}: Growing directory detected: {} ({} -> {} bytes, delta: {} bytes)",
+                    line_id,
+                    dir,
+                    size_t1,
+                    size_t2,
+                    size_t2.saturating_sub(*size_t1)
+                );
+            }
+            is_growing
+        })
+        .cloned()
+        .collect();
+
+    debug!(
+        "Line {}: Total directories tracked: {}",
+        line_id,
+        dirs_t1.len()
+    );
+    debug!(
+        "Line {}: Growing directories: {}",
+        line_id,
+        growing_dirs.len()
+    );
+    debug!("Line {}: Growing dirs: {:?}", line_id, growing_dirs);
+
+    // Create filtered file list for analysis (exclude files from growing directories)
+    let analysis_files: Vec<_> = files
+        .iter()
+        .filter(|f| !growing_dirs.contains(&f.parent_dir))
+        .cloned()
+        .collect();
+
+    debug!(
+        "Line {}: Total files: {}, Analysis files: {}",
+        line_id,
+        files.len(),
+        analysis_files.len()
+    );
 
     let delta_bytes = size_t2.saturating_sub(size_t1);
     let speed_bps = delta_bytes / 10;
@@ -364,12 +461,18 @@ fn collect_audit_data(
         alert_threshold,
     );
 
-    let integrity_stats = stats::calculate_integrity_stats(&files, tiny_threshold);
-    let gap_report = gap_analysis::find_gaps(&files, line_id);
-    let estimates_report =
-        estimates::calculate_estimates(&search_dir, &files, line_id, size_t2, speed_bps, base_dir);
-    let anomalies_report = stats::calculate_anomalies(&files);
-    let bad_files_report = stats::collect_bad_files(&files, line_id);
+    let integrity_stats = stats::calculate_integrity_stats(&analysis_files, tiny_threshold);
+    let gap_report = gap_analysis::find_gaps(&analysis_files, line_id);
+    let estimates_report = estimates::calculate_estimates(
+        &search_dir,
+        &analysis_files,
+        line_id,
+        size_t2,
+        speed_bps,
+        base_dir,
+    );
+    let anomalies_report = stats::calculate_anomalies(&analysis_files);
+    let bad_files_report = stats::collect_bad_files(&analysis_files, line_id);
 
     // Return AuditReport
     html_renderer::AuditReport {
@@ -401,7 +504,10 @@ fn log_state_change(
         timestamp, old_state, new_state, speed_mbps
     );
 
-    debug!("Line {}: Appending to interruption log: {}", line_id, log_file);
+    debug!(
+        "Line {}: Appending to interruption log: {}",
+        line_id, log_file
+    );
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_file) {
         let _ = file.write_all(log_entry.as_bytes());
         debug!("Line {}: Interruption log entry written", line_id);
@@ -533,7 +639,10 @@ fn check_and_send_alerts(
         }
         AlertAction::CreateTimestamp => {
             // State just changed - log it and create timestamp
-            info!("Line {}: State changed {} → {} ({:.1} MiB/s)", line_id, prev_state, current_state, speed_mib);
+            info!(
+                "Line {}: State changed {} → {} ({:.1} MiB/s)",
+                line_id, prev_state, current_state, speed_mib
+            );
             log_state_change(base_dir, line_id, prev_state, current_state, speed_mib);
             let timestamp_str = Local::now().format("%Y-%m-%d %H:%M").to_string();
             debug!("Line {}: Created state change timestamp file", line_id);
@@ -543,13 +652,19 @@ fn check_and_send_alerts(
         }
         AlertAction::WaitForThreshold => {
             // Waiting for threshold - just update state file
-            debug!("Line {}: Waiting for alert threshold (state: {})", line_id, current_state);
+            debug!(
+                "Line {}: Waiting for alert threshold (state: {})",
+                line_id, current_state
+            );
             debug!("Line {}: Writing state file", line_id);
             fs::write(&files.state_file, current_state).ok();
         }
         AlertAction::SendAlert { minutes_elapsed } => {
             // Threshold met - send alert and clean up
-            info!("Line {}: Alert threshold reached ({} minutes in {} state)", line_id, minutes_elapsed, current_state);
+            info!(
+                "Line {}: Alert threshold reached ({} minutes in {} state)",
+                line_id, minutes_elapsed, current_state
+            );
             if let Some(cfg) = email::EmailConfig::load(base_dir) {
                 let email = create_alert_email(
                     line_id,
