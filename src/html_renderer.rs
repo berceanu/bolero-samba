@@ -187,7 +187,7 @@ fn render_integrity_section(report: &AuditReport) -> String {
 
     if let Some(stats) = &report.integrity_stats {
         html.push_str(r#"<table class="data-table"><thead><tr>"#);
-        html.push_str("<th>Device Type</th><th>Total</th><th>Empty</th><th>Bad</th>");
+        html.push_str("<th>Filename</th><th>Total</th><th>Empty</th><th>Bad</th>");
         html.push_str("<th>Min</th><th>Max</th><th>Median</th><th>StdDev</th>");
         html.push_str("</tr></thead><tbody>");
 
@@ -321,10 +321,6 @@ fn render_estimates_section(report: &AuditReport) -> String {
             r#"<p><strong>Current Progress:</strong> Copying <span class="green">{}</span></p>"#,
             est.current_copy_date.format("%Y-%m-%d")
         ));
-        html.push_str(&format!(
-            r"<p><strong>Daily Median:</strong> {} GiB/day</p>",
-            est.daily_average_gib
-        ));
         
         // Format full project date range
         let date_range = format!(
@@ -369,7 +365,7 @@ fn render_anomalies_section(report: &AuditReport) -> String {
 
     if let Some(anom) = &report.anomaly_report {
         html.push_str(&format!(
-            r"<p><strong>Median Daily Size:</strong> {}</p>",
+            r"<p><strong>Median Size:</strong> {}</p>",
             human_bytes::human_bytes(anom.median_daily_size as f64)
         ));
 
