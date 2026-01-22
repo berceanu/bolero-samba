@@ -38,7 +38,7 @@ pub fn get_total_and_per_dir_sizes(path: &str) -> (u64, HashMap<String, u64>) {
 }
 
 #[must_use]
-pub fn scan_files(path: &str, silent: bool) -> Vec<FileEntry> {
+pub fn scan_files(path: &str) -> Vec<FileEntry> {
     // 1. Collect all ZIP files into a vector (Sequential Walk)
     let entries: Vec<_> = WalkDir::new(path)
         .into_iter()
@@ -51,18 +51,10 @@ pub fn scan_files(path: &str, silent: bool) -> Vec<FileEntry> {
         })
         .collect();
 
-    let total_files = entries.len();
-
     // 2. Process metadata and integrity sequentially
     let results: Vec<FileEntry> = entries
         .into_iter()
-        .enumerate()
-        .map(|(i, entry)| {
-            if !silent && (i % 50 == 0 || i == total_files - 1) {
-                print!("\r  Verifying files: {}/{}:..", i + 1, total_files);
-                std::io::stdout().flush().ok();
-            }
-
+        .map(|entry| {
             let p = entry.path();
 
             // Metadata access

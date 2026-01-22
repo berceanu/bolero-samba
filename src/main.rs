@@ -55,11 +55,11 @@ struct Args {
     #[arg(long, default_value_t = 0.85)]
     anomaly_threshold: f64,
 
-    /// Start date for transfer window (YYYY-MM-DD). Conflicts with --read-dates-from.
+    /// Start date for transfer window (YYYY-MM-DD) [default: 2024-07-29]. Conflicts with --read-dates-from.
     #[arg(long, value_name = "DATE", conflicts_with = "read_dates_from")]
     start_date: Option<String>,
 
-    /// End date for transfer window (YYYY-MM-DD). Conflicts with --read-dates-from.
+    /// End date for transfer window (YYYY-MM-DD) [default: 2025-12-12]. Conflicts with --read-dates-from.
     #[arg(long, value_name = "DATE", conflicts_with = "read_dates_from")]
     end_date: Option<String>,
 
@@ -168,7 +168,7 @@ fn main() {
     thread::sleep(Duration::from_secs(10));
     let (size_t2, dirs_t2) = scanner::get_total_and_per_dir_sizes(&search_dir);
 
-    let files = scanner::scan_files(&search_dir, false);
+    let files = scanner::scan_files(&search_dir);
     let total_zip_files = files.len();
 
     // Identify growing directories (actively being copied)
@@ -406,7 +406,6 @@ fn generate_dashboard(
                 collect_audit_data(
                     "A",
                     base_dir,
-                    true,
                     alert_threshold,
                     max_bad_per_archive,
                     anomaly_threshold,
@@ -418,7 +417,6 @@ fn generate_dashboard(
                 collect_audit_data(
                     "B",
                     base_dir,
-                    true,
                     alert_threshold,
                     max_bad_per_archive,
                     anomaly_threshold,
@@ -483,7 +481,6 @@ fn acquire_lock(lockfile: &str) -> Result<fs::File, String> {
 fn collect_audit_data(
     line_id: &str,
     base_dir: &str,
-    silent: bool,
     alert_threshold: u64,
     max_bad_per_archive: usize,
     anomaly_threshold: f64,
@@ -498,7 +495,7 @@ fn collect_audit_data(
     thread::sleep(Duration::from_secs(10));
     let (size_t2, dirs_t2) = scanner::get_total_and_per_dir_sizes(&search_dir);
 
-    let files = scanner::scan_files(&search_dir, silent);
+    let files = scanner::scan_files(&search_dir);
     let total_zip_files = files.len();
 
     // Identify growing directories (actively being copied)
