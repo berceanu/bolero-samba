@@ -2,7 +2,7 @@ use crate::types::FileEntry;
 use chrono::{DateTime, Local};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom};
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::SystemTime;
