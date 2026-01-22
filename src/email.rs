@@ -1,5 +1,6 @@
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
+use log::{debug, error, info};
 use std::collections::HashMap;
 use std::fs;
 
@@ -13,6 +14,7 @@ impl EmailConfig {
     #[must_use]
     pub fn load(base_dir: &str) -> Option<Self> {
         let config_path = format!("{}/.email_config", base_dir);
+        debug!("Loading email config from: {}", config_path);
         let content = fs::read_to_string(&config_path).ok()?;
         let mut map = HashMap::new();
 
@@ -28,6 +30,8 @@ impl EmailConfig {
             smtp_user: (*map.get("SMTP_USER")?).to_string(),
             smtp_pass: (*map.get("SMTP_PASS")?).to_string(),
             recipient: (*map.get("RECIPIENT_EMAIL")?).to_string(),
+        }).inspect(|cfg| {
+            debug!("Email config loaded successfully (user: {}, recipient: {})", cfg.smtp_user, cfg.recipient);
         })
     }
 }
@@ -37,7 +41,7 @@ pub fn send_alert(subject: &str, body: &str, config: &EmailConfig) {
     let from_addr = match config.smtp_user.parse() {
         Ok(addr) => addr,
         Err(e) => {
-            eprintln!("Invalid sender email address: {e}");
+            error!("Invalid sender email address: {}", e);
             return;
         }
     };
@@ -45,7 +49,7 @@ pub fn send_alert(subject: &str, body: &str, config: &EmailConfig) {
     let to_addr = match config.recipient.parse() {
         Ok(addr) => addr,
         Err(e) => {
-            eprintln!("Invalid recipient email address: {e}");
+            error!("Invalid recipient email address: {}", e);
             return;
         }
     };
@@ -58,7 +62,7 @@ pub fn send_alert(subject: &str, body: &str, config: &EmailConfig) {
     {
         Ok(msg) => msg,
         Err(e) => {
-            eprintln!("Failed to build email message: {e}");
+            error!("Failed to build email message: {}", e);
             return;
         }
     };
@@ -69,13 +73,14 @@ pub fn send_alert(subject: &str, body: &str, config: &EmailConfig) {
     let mailer = match SmtpTransport::relay("smtp.gmail.com") {
         Ok(transport) => transport.credentials(creds).build(),
         Err(e) => {
-            eprintln!("Failed to connect to SMTP server: {e}");
+            error!("Failed to connect to SMTP server: {}", e);
             return;
         }
     };
 
+    debug!("Sending email: {}", subject);
     match mailer.send(&email) {
-        Ok(_) => println!("Email alert sent successfully."),
-        Err(e) => eprintln!("Failed to send email: {e}"),
+        Ok(_) => info!("Email sent successfully: {}", subject),
+        Err(e) => error!("Failed to send email: {}", e),
     }
 }

@@ -10,6 +10,7 @@ mod types;
 use chrono::Local;
 use clap::Parser;
 use colored::Colorize;
+use log::{debug, error, info, warn};
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -46,6 +47,11 @@ struct Args {
 }
 
 fn main() {
+    // Initialize logger with timestamp and level
+    env_logger::Builder::from_default_env()
+        .format_timestamp_secs()
+        .init();
+
     let args = Args::parse();
 
     // Test email mode
@@ -242,12 +248,12 @@ fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64) {
     let _lock = match acquire_lock(lockfile) {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("Another instance is already running: {e}");
+            error!("Another instance is already running: {}", e);
             std::process::exit(1);
         }
     };
 
-    println!("Generating dashboard for both lines...");
+    info!("Generating dashboard for both lines...");
 
     // Generate reports for both lines IN PARALLEL
     let result = std::panic::catch_unwind(|| {
@@ -263,7 +269,7 @@ fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64) {
         reports
     } else {
         fs::remove_file(lockfile).ok();
-        eprintln!("Error during audit data collection");
+        error!("Error during audit data collection");
         std::process::exit(1);
     };
 
@@ -272,12 +278,12 @@ fn generate_dashboard(output_file: &str, base_dir: &str, alert_threshold: u64) {
 
     // Write to file
     if let Err(e) = fs::write(output_file, html) {
-        eprintln!("Error writing dashboard to {output_file}: {e}");
+        error!("Error writing dashboard to {}: {}", output_file, e);
         fs::remove_file(lockfile).ok();
         std::process::exit(1);
     }
 
-    println!("Dashboard written to: {output_file}");
+    info!("Dashboard written to: {}", output_file);
     fs::remove_file(lockfile).ok();
 }
 
@@ -518,21 +524,26 @@ fn check_and_send_alerts(
     match action {
         AlertAction::NoAction => {
             // State unchanged, no pending alert - just update state file
+            debug!("Line {}: State unchanged ({})", line_id, current_state);
             fs::write(&files.state_file, current_state).ok();
         }
         AlertAction::CreateTimestamp => {
             // State just changed - log it and create timestamp
+            info!("Line {}: State changed {} → {} ({:.1} MiB/s)", line_id, prev_state, current_state, speed_mib);
             log_state_change(base_dir, line_id, prev_state, current_state, speed_mib);
             let timestamp_str = Local::now().format("%Y-%m-%d %H:%M").to_string();
+            debug!("Line {}: Created state change timestamp file", line_id);
             fs::write(&files.timestamp_file, timestamp_str).ok();
             fs::write(&files.state_file, current_state).ok();
         }
         AlertAction::WaitForThreshold => {
             // Waiting for threshold - just update state file
+            debug!("Line {}: Waiting for alert threshold (state: {})", line_id, current_state);
             fs::write(&files.state_file, current_state).ok();
         }
         AlertAction::SendAlert { minutes_elapsed } => {
             // Threshold met - send alert and clean up
+            info!("Line {}: Alert threshold reached ({} minutes in {} state)", line_id, minutes_elapsed, current_state);
             if let Some(cfg) = email::EmailConfig::load(base_dir) {
                 let email = create_alert_email(
                     line_id,
@@ -542,7 +553,11 @@ fn check_and_send_alerts(
                     Local::now(),
                 );
                 email::send_alert(&email.subject, &email.body, &cfg);
+                info!("Line {}: Alert email sent", line_id);
+            } else {
+                warn!("Line {}: Email config not found, skipping alert", line_id);
             }
+            debug!("Line {}: Removed state change timestamp file", line_id);
             fs::remove_file(&files.timestamp_file).ok();
         }
     }
