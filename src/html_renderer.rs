@@ -410,11 +410,16 @@ fn render_bad_files_section(report: &AuditReport) -> String {
         for (folder, files, total_in_dir) in &bad_report.files_by_folder {
             // Display count based on whether truncation occurred
             let folder_header = if *total_in_dir > files.len() {
-                format!("{} ({} bad files, showing first {})", folder, total_in_dir, files.len())
+                format!(
+                    "{} ({} bad files, showing first {})",
+                    folder,
+                    total_in_dir,
+                    files.len()
+                )
             } else {
                 format!("{} ({} bad files)", folder, total_in_dir)
             };
-            
+
             html.push_str(&format!(
                 r#"<h4 style="color: #ffd700; margin: 15px 0 10px 0;">{}</h4>"#,
                 escape_html(&folder_header)
@@ -432,7 +437,7 @@ fn render_bad_files_section(report: &AuditReport) -> String {
                     escape_html(&file.reason)
                 ));
             }
-            
+
             // Show truncation message if needed
             if *total_in_dir > files.len() {
                 let remaining = total_in_dir - files.len();

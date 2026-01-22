@@ -21,13 +21,14 @@ pub struct EstimatesReport {
 }
 
 #[must_use]
+#[allow(clippy::too_many_arguments)]
 pub fn calculate_estimates(
     search_dir: &str,
     files: &[FileEntry],
     all_files: &[FileEntry],
     growing_dirs: &HashSet<String>,
     line_id: &str,
-    _total_bytes: u64,
+    _size_t2: u64,
     speed_bps: u64,
     base_dir: &str,
 ) -> Option<EstimatesReport> {
@@ -271,10 +272,10 @@ fn get_folder_dates(files: &[FileEntry], line_id: &str) -> Vec<NaiveDate> {
 
 fn extract_date_from_dirname(dirname: &str, line_id: &str) -> Option<NaiveDate> {
     let prefix = format!("Archive_Beam_{}_", line_id);
-    if let Some(date_str) = dirname.strip_prefix(&prefix) {
-        if date_str.len() >= 10 {
-            return NaiveDate::parse_from_str(&date_str[0..10], "%Y-%m-%d").ok();
-        }
+    if let Some(date_str) = dirname.strip_prefix(&prefix)
+        && date_str.len() >= 10
+    {
+        return NaiveDate::parse_from_str(&date_str[0..10], "%Y-%m-%d").ok();
     }
     None
 }
@@ -353,18 +354,27 @@ mod tests {
             extract_date_from_dirname("Archive_Beam_B_2024-08-01", "B"),
             Some(NaiveDate::parse_from_str("2024-08-01", "%Y-%m-%d").unwrap())
         );
-        
+
         assert_eq!(
             extract_date_from_dirname("Archive_Beam_A_2024-12-25", "A"),
             Some(NaiveDate::parse_from_str("2024-12-25", "%Y-%m-%d").unwrap())
         );
-        
+
         // Test invalid formats
-        assert_eq!(extract_date_from_dirname("Archive_Beam_B_invalid", "B"), None);
-        assert_eq!(extract_date_from_dirname("SomeOtherDir_2024-08-01", "B"), None);
-        
+        assert_eq!(
+            extract_date_from_dirname("Archive_Beam_B_invalid", "B"),
+            None
+        );
+        assert_eq!(
+            extract_date_from_dirname("SomeOtherDir_2024-08-01", "B"),
+            None
+        );
+
         // Test wrong line ID
-        assert_eq!(extract_date_from_dirname("Archive_Beam_A_2024-08-01", "B"), None);
+        assert_eq!(
+            extract_date_from_dirname("Archive_Beam_A_2024-08-01", "B"),
+            None
+        );
     }
 
     #[test]
@@ -395,7 +405,7 @@ mod tests {
                 parent_dir: "Archive_Beam_B_2024-08-05".to_string(),
             },
         ];
-        
+
         // Should return the latest date from all directories
         let result = get_last_completed_date(&files, "B");
         assert_eq!(

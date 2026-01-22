@@ -381,7 +381,11 @@ pub fn print_anomalies(report: &Option<AnomalyReport>) {
 }
 
 #[must_use]
-pub fn collect_bad_files(files: &[FileEntry], line_id: &str, max_per_archive: usize) -> Option<BadFilesReport> {
+pub fn collect_bad_files(
+    files: &[FileEntry],
+    line_id: &str,
+    max_per_archive: usize,
+) -> Option<BadFilesReport> {
     // Files are already filtered to exclude growing directories
     let bad_files: Vec<&FileEntry> = files.iter().filter(|f| !f.is_valid).collect();
 
