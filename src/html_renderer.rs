@@ -25,7 +25,7 @@ pub fn render_dashboard(line_a_report: &AuditReport, line_b_report: &AuditReport
     html.push_str("<!DOCTYPE html>\n<html>\n<head>\n");
     html.push_str("  <meta charset=\"UTF-8\">\n");
     html.push_str("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
-    html.push_str("  <meta http-equiv=\"refresh\" content=\"60\">\n");
+    html.push_str("  <meta http-equiv=\"refresh\" content=\"300\">\n");
     html.push_str("  <link rel=\"icon\" href=\"data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⇄</text></svg>\">\n");
     html.push_str("  <title>Transfer Status</title>\n");
     html.push_str(&render_styles());
