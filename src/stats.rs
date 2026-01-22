@@ -209,7 +209,7 @@ pub fn print_integrity_table(stats_opt: &Option<IntegrityStats>) {
     let mut table = Table::new();
     table.load_preset(comfy_table::presets::UTF8_HORIZONTAL_ONLY);
     table.set_header(vec![
-        "Filename", "Total", "Empty", "Bad", "Min", "Max", "Median", "StdDev",
+        "Filename", "Total", "Empty", "Bad", "Min", "Median", "StdDev", "Max",
     ]);
 
     for row in &stats.rows {
@@ -243,9 +243,9 @@ pub fn print_integrity_table(stats_opt: &Option<IntegrityStats>) {
                 Color::White
             }),
             Cell::new(min_s),
-            Cell::new(max_s),
             Cell::new(median_s),
             Cell::new(std_s),
+            Cell::new(max_s),
         ];
         table.add_row(t_row);
     }
@@ -273,10 +273,22 @@ pub fn print_integrity_table(stats_opt: &Option<IntegrityStats>) {
         })
         .add_attribute(Attribute::Bold),
         Cell::new(human_bytes::human_bytes(stats.grand_min as f64)).add_attribute(Attribute::Bold),
-        Cell::new(human_bytes::human_bytes(stats.grand_max as f64)).add_attribute(Attribute::Bold),
         Cell::new(human_bytes::human_bytes(stats.grand_median as f64))
             .add_attribute(Attribute::Bold),
         Cell::new(human_bytes::human_bytes(stats.grand_std_dev)).add_attribute(Attribute::Bold),
+        Cell::new(human_bytes::human_bytes(stats.grand_max as f64)).add_attribute(Attribute::Bold),
+    ]);
+
+    // Repeat header at the bottom
+    table.add_row(vec![
+        Cell::new("Filename"),
+        Cell::new("Total"),
+        Cell::new("Empty"),
+        Cell::new("Bad"),
+        Cell::new("Min"),
+        Cell::new("Median"),
+        Cell::new("StdDev"),
+        Cell::new("Max"),
     ]);
 
     println!("{table}");

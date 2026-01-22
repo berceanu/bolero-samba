@@ -27,11 +27,9 @@ pub fn render_dashboard(line_a_report: &AuditReport, line_b_report: &AuditReport
     html.push_str("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
     html.push_str("  <meta http-equiv=\"refresh\" content=\"300\">\n");
     html.push_str("  <link rel=\"icon\" href=\"data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⇄</text></svg>\">\n");
-    html.push_str("  <title>Transfer Status</title>\n");
     html.push_str(&render_styles());
     html.push_str("</head>\n<body>\n");
 
-    html.push_str("  <h1>Transfer Status</h1>\n");
     html.push_str(&format!(
         "  <h3>Last Sync: {}</h3>\n",
         Local::now().format("%Y-%m-%d %H:%M")
@@ -217,7 +215,7 @@ fn render_integrity_section(report: &AuditReport) -> String {
     if let Some(stats) = &report.integrity_stats {
         html.push_str(r#"<table class="data-table"><thead><tr>"#);
         html.push_str("<th>Filename</th><th>Total</th><th>Empty</th><th>Bad</th>");
-        html.push_str("<th>Min</th><th>Max</th><th>Median</th><th>StdDev</th>");
+        html.push_str("<th>Min</th><th>Median</th><th>StdDev</th><th>Max</th>");
         html.push_str("</tr></thead><tbody>");
 
         for row in &stats.rows {
@@ -250,7 +248,7 @@ fn render_integrity_section(report: &AuditReport) -> String {
                 row.total,
                 empty_class, row.empty,
                 bad_class, row.bad,
-                min_s, max_s, median_s, std_s
+                min_s, median_s, std_s, max_s
             ));
         }
 
@@ -274,10 +272,13 @@ fn render_integrity_section(report: &AuditReport) -> String {
             if stats.grand_bad > 0 { "⚠️ " } else { "" },
             stats.grand_bad,
             human_bytes::human_bytes(stats.grand_min as f64),
-            human_bytes::human_bytes(stats.grand_max as f64),
             human_bytes::human_bytes(stats.grand_median as f64),
-            human_bytes::human_bytes(stats.grand_std_dev)
+            human_bytes::human_bytes(stats.grand_std_dev),
+            human_bytes::human_bytes(stats.grand_max as f64)
         ));
+
+        // Repeat header at the bottom
+        html.push_str("<tr class=\"header-repeat\"><th>Filename</th><th>Total</th><th>Empty</th><th>Bad</th><th>Min</th><th>Median</th><th>StdDev</th><th>Max</th></tr>");
 
         html.push_str("</tbody></table>");
     } else {
