@@ -438,18 +438,18 @@ pub fn collect_bad_files(
     })
 }
 
-pub fn print_bad_files(report: &Option<BadFilesReport>) {
+pub fn print_bad_files(report: &Option<BadFilesReport>, threshold: usize) {
     if let Some(r) = report {
         println!("\n{}", "=== Bad ZIP Files ===".cyan());
 
         let archive_count = r.files_by_folder.len();
         println!(
-            "Found {} bad ZIP files across {} archives:",
-            r.total_count, archive_count
+            "Found {} bad ZIP files across {} archives (showing archives with >{} bad files):",
+            r.total_count, archive_count, threshold
         );
 
-        // Filter to show only archives with more than 3 bad files
-        for (folder, files, total_in_dir) in r.files_by_folder.iter().filter(|(_, _, count)| *count > 3) {
+        // Filter to show only archives with more than threshold bad files
+        for (folder, files, total_in_dir) in r.files_by_folder.iter().filter(|(_, _, count)| *count > threshold) {
             // Display count based on whether truncation occurred
             if *total_in_dir > files.len() {
                 println!(

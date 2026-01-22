@@ -250,6 +250,7 @@ fn main() {
             estimates_report,
             anomaly_report: anomalies_report,
             bad_files_report,
+            max_bad_per_archive: args.max_bad_per_archive,
         };
 
         println!("{}", html_renderer::render_full_report(&report));
@@ -306,7 +307,7 @@ fn main() {
 
         let bad_files_report =
             stats::collect_bad_files(&analysis_files, &line_id, args.max_bad_per_archive);
-        stats::print_bad_files(&bad_files_report);
+        stats::print_bad_files(&bad_files_report, args.max_bad_per_archive);
 
         println!("\n{}", "=== Audit Complete ===".cyan());
     }
@@ -546,6 +547,7 @@ fn collect_audit_data(
         estimates_report,
         anomaly_report: anomalies_report,
         bad_files_report,
+        max_bad_per_archive,
     }
 }
 

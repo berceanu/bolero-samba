@@ -15,6 +15,7 @@ pub struct AuditReport {
     pub estimates_report: Option<EstimatesReport>,
     pub anomaly_report: Option<AnomalyReport>,
     pub bad_files_report: Option<BadFilesReport>,
+    pub max_bad_per_archive: usize,
 }
 
 #[must_use]
@@ -126,7 +127,7 @@ pub fn render_full_report(report: &AuditReport) -> String {
     html.push_str(&render_anomalies_section(report));
 
     // Bad ZIP Files
-    html.push_str(&render_bad_files_section(report));
+    html.push_str(&render_bad_files_section(report, report.max_bad_per_archive));
 
     html
 }
@@ -405,7 +406,7 @@ fn render_anomalies_section(report: &AuditReport) -> String {
     html
 }
 
-fn render_bad_files_section(report: &AuditReport) -> String {
+fn render_bad_files_section(report: &AuditReport, threshold: usize) -> String {
     let mut html = String::new();
 
     if let Some(bad_report) = &report.bad_files_report {
@@ -413,12 +414,12 @@ fn render_bad_files_section(report: &AuditReport) -> String {
 
         let archive_count = bad_report.files_by_folder.len();
         html.push_str(&format!(
-            r#"<p>Found {} bad ZIP files across {} archives:</p>"#,
-            bad_report.total_count, archive_count
+            r#"<p>Found {} bad ZIP files across {} archives (showing archives with >{} bad files):</p>"#,
+            bad_report.total_count, archive_count, threshold
         ));
 
-        // Filter to show only archives with more than 3 bad files
-        for (folder, files, total_in_dir) in bad_report.files_by_folder.iter().filter(|(_, _, count)| *count > 3) {
+        // Filter to show only archives with more than threshold bad files
+        for (folder, files, total_in_dir) in bad_report.files_by_folder.iter().filter(|(_, _, count)| *count > threshold) {
             // Display count based on whether truncation occurred
             let folder_header = if *total_in_dir > files.len() {
                 format!(
