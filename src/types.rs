@@ -6,6 +6,7 @@ pub struct FileEntry {
     pub size: u64,
     pub is_valid: bool,
     pub invalid_reason: Option<String>,
+    #[allow(dead_code)]
     pub modified: DateTime<Local>,
-    pub parent_dir: String, // Useful for "Directory Size Anomalies"
+    pub parent_dir: String,
 }

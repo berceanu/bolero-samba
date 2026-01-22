@@ -1,6 +1,7 @@
 use crate::types::FileEntry;
-use chrono::{Datelike, Local, NaiveDate};
+use chrono::{Datelike, NaiveDate};
 use colored::Colorize;
+use std::collections::HashSet;
 use std::fs;
 use std::process::Command;
 
@@ -23,6 +24,8 @@ pub struct EstimatesReport {
 pub fn calculate_estimates(
     search_dir: &str,
     files: &[FileEntry],
+    all_files: &[FileEntry],
+    growing_dirs: &HashSet<String>,
     line_id: &str,
     _total_bytes: u64,
     speed_bps: u64,
@@ -33,7 +36,16 @@ pub fn calculate_estimates(
     let (start_date, end_date) = parse_config(&config_path)?;
 
     // 2. Identify Current Copy Date
-    let current_copy_date = get_current_copy_date(files, line_id, search_dir).unwrap_or(start_date); // If no data, start from beginning (0% progress)
+    // If there's a growing directory, that's what we're copying right now
+    let current_copy_date = if let Some(growing_dir) = growing_dirs.iter().next() {
+        extract_date_from_dirname(growing_dir, line_id).unwrap_or_else(|| {
+            // Fallback: check all_files for latest date
+            get_last_completed_date(all_files, line_id).unwrap_or(start_date)
+        })
+    } else {
+        // No active copy, use last completed from filtered files
+        get_last_completed_date(files, line_id).unwrap_or(start_date)
+    };
 
     // 3. Calculate median daily size (more robust than mean for outliers)
     // Group files by parent_dir and calculate size per folder
@@ -257,49 +269,19 @@ fn get_folder_dates(files: &[FileEntry], line_id: &str) -> Vec<NaiveDate> {
     dates
 }
 
-fn get_current_copy_date(
-    files: &[FileEntry],
-    line_id: &str,
-    _search_dir: &str,
-) -> Option<NaiveDate> {
-    // 1. Try to get date from recent files (modified in last 5 mins)
-    // Note: Since we passed `files` (All Zips), we can check their mod times.
-    // Ideally we want the "Active" file.
-    let now = Local::now();
-    let recent_date = files
-        .iter()
-        .filter(|f| {
-            let diff = now.signed_duration_since(f.modified);
-            diff.num_minutes() < 5
-        })
-        // Extract date from parent folder of the recent file
-        .filter_map(|f| {
-            let prefix = format!("Archive_Beam_{line_id}_");
-            if f.parent_dir.starts_with(&prefix) {
-                let date_str = &f.parent_dir[prefix.len()..];
-                if date_str.len() >= 10 {
-                    NaiveDate::parse_from_str(&date_str[0..10], "%Y-%m-%d").ok()
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
-        .next();
-
-    if let Some(d) = recent_date {
-        return Some(d);
+fn extract_date_from_dirname(dirname: &str, line_id: &str) -> Option<NaiveDate> {
+    let prefix = format!("Archive_Beam_{}_", line_id);
+    if let Some(date_str) = dirname.strip_prefix(&prefix) {
+        if date_str.len() >= 10 {
+            return NaiveDate::parse_from_str(&date_str[0..10], "%Y-%m-%d").ok();
+        }
     }
-
-    // 2. Fallback: Latest existing folder date
-    let dates = get_folder_dates(files, line_id);
-    if let Some(last) = dates.last() {
-        return Some(*last);
-    }
-
-    // 3. No data exists - return None so we can default to start_date (0% progress)
     None
+}
+
+fn get_last_completed_date(files: &[FileEntry], line_id: &str) -> Option<NaiveDate> {
+    let dates = get_folder_dates(files, line_id);
+    dates.last().copied()
 }
 
 fn get_available_bytes(path: &str) -> u64 {

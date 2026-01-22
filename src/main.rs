@@ -204,6 +204,8 @@ fn main() {
     let estimates_report = estimates::calculate_estimates(
         &search_dir,
         &analysis_files,
+        &files,
+        &growing_dirs,
         &line_id,
         size_t2,
         speed_bps,
@@ -466,6 +468,8 @@ fn collect_audit_data(
     let estimates_report = estimates::calculate_estimates(
         &search_dir,
         &analysis_files,
+        &files,
+        &growing_dirs,
         line_id,
         size_t2,
         speed_bps,
