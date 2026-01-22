@@ -97,7 +97,13 @@ fn is_zip_valid(path: &Path) -> (bool, Option<String>) {
         Err(_) => return (false, Some("Cannot read file metadata".to_string())),
     };
     if len < 22 {
-        return (false, Some(format!("File too small ({} bytes, minimum 22 bytes required)", len)));
+        return (
+            false,
+            Some(format!(
+                "File too small ({} bytes, minimum 22 bytes required)",
+                len
+            )),
+        );
     }
 
     // Search last 64KB + 22 bytes for EOCD signature (0x06054b50)
@@ -125,7 +131,10 @@ fn is_zip_valid(path: &Path) -> (bool, Option<String>) {
         }
     }
 
-    (false, Some("Missing ZIP signature (corrupted or incomplete transfer)".to_string()))
+    (
+        false,
+        Some("Missing ZIP signature (corrupted or incomplete transfer)".to_string()),
+    )
 }
 
 #[must_use]

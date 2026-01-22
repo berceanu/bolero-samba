@@ -261,9 +261,7 @@ fn render_integrity_section(report: &AuditReport) -> String {
 
 fn render_gap_section(report: &AuditReport) -> String {
     let mut html = String::new();
-    html.push_str(
-        r#"<div class="section"><h3 class="section-title">Missing Daily Archives</h3>"#,
-    );
+    html.push_str(r#"<div class="section"><h3 class="section-title">Missing Daily Archives</h3>"#);
 
     if let Some(gap) = &report.gap_report {
         if gap.is_empty {
@@ -321,14 +319,14 @@ fn render_estimates_section(report: &AuditReport) -> String {
             r#"<p><strong>Current Progress:</strong> Copying <span class="green">{}</span></p>"#,
             est.current_copy_date.format("%Y-%m-%d")
         ));
-        
+
         // Format full project date range
         let date_range = format!(
             "{} - {}",
             est.start_date.format("%b %Y"),
             est.end_date.format("%b %Y")
         );
-        
+
         html.push_str(&format!(
             r"<p><strong>Data to Copy:</strong> {} daily archives ({})</p>",
             est.weekdays_remaining, date_range
@@ -401,12 +399,14 @@ fn render_bad_files_section(report: &AuditReport) -> String {
     let mut html = String::new();
 
     if let Some(bad_report) = &report.bad_files_report {
-        html.push_str(
-            r#"<div class="section"><h3 class="section-title">Bad ZIP Files</h3>"#,
-        );
+        html.push_str(r#"<div class="section"><h3 class="section-title">Bad ZIP Files</h3>"#);
 
-        let displayed_count = bad_report.files_by_folder.iter().map(|(_, files)| files.len()).sum::<usize>();
-        
+        let displayed_count = bad_report
+            .files_by_folder
+            .iter()
+            .map(|(_, files)| files.len())
+            .sum::<usize>();
+
         if bad_report.total_count > displayed_count {
             html.push_str(&format!(
                 r#"<p>Found {} bad ZIP files, here are the first {}:</p>"#,

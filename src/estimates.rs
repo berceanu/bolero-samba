@@ -7,8 +7,7 @@ use std::process::Command;
 #[derive(Debug)]
 pub struct EstimatesReport {
     pub current_copy_date: NaiveDate,
-    pub daily_average_gib: u64,
-    pub weekdays_remaining: u32,
+    pub weekdays_remaining: usize,
     pub weekdays_completed: u32,
     pub total_weekdays: u32,
     pub estimated_data_left_tib: f64,
@@ -45,9 +44,9 @@ pub fn calculate_estimates(
         }
         size_map.values().copied().collect()
     };
-    
+
     folder_sizes.sort_unstable();
-    
+
     let median_bytes_per_day = if !folder_sizes.is_empty() {
         let count = folder_sizes.len();
         if count % 2 == 1 {
@@ -58,8 +57,6 @@ pub fn calculate_estimates(
     } else {
         0
     };
-    
-    let daily_average_gib = median_bytes_per_day / 1_024 / 1_024 / 1_024;
 
     // 4. Calculate total weekdays from start to end
     let mut total_weekdays = 0;
@@ -110,7 +107,7 @@ pub fn calculate_estimates(
     //     return None; // Transfer complete
     // }
 
-    let total_remaining_bytes = u64::from(weekdays_remaining) * median_bytes_per_day;
+    let total_remaining_bytes = (weekdays_remaining as u64) * median_bytes_per_day;
     let estimated_data_left_tib =
         total_remaining_bytes as f64 / 1_024.0 / 1_024.0 / 1_024.0 / 1_024.0;
 
@@ -129,7 +126,6 @@ pub fn calculate_estimates(
 
     Some(EstimatesReport {
         current_copy_date,
-        daily_average_gib,
         weekdays_remaining,
         weekdays_completed,
         total_weekdays,
@@ -169,14 +165,14 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
             "Current Progress:  Copying {}",
             r.current_copy_date.format("%Y-%m-%d").to_string().green()
         );
-        
+
         // Format full project date range
         let date_range = format!(
             "{} - {}",
             r.start_date.format("%b %Y"),
             r.end_date.format("%b %Y")
         );
-        
+
         println!(
             "Data to Copy:      {} daily archives ({})",
             r.weekdays_remaining, date_range

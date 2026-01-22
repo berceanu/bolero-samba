@@ -304,7 +304,12 @@ fn acquire_lock(lockfile: &str) -> Result<fs::File, String> {
     }
 }
 
-fn collect_audit_data(line_id: &str, base_dir: &str, silent: bool, alert_threshold: u64) -> html_renderer::AuditReport {
+fn collect_audit_data(
+    line_id: &str,
+    base_dir: &str,
+    silent: bool,
+    alert_threshold: u64,
+) -> html_renderer::AuditReport {
     let search_dir = format!("{}/Line {}", base_dir, line_id);
     let tiny_threshold = 1000;
 
@@ -403,10 +408,11 @@ fn log_state_change(
 
 #[derive(Debug, PartialEq)]
 enum AlertAction {
-    NoAction,              // State unchanged, no pending alert
-    CreateTimestamp,       // State just changed, start tracking
-    WaitForThreshold,      // Waiting for threshold to pass
-    SendAlert {            // Time to send alert
+    NoAction,         // State unchanged, no pending alert
+    CreateTimestamp,  // State just changed, start tracking
+    WaitForThreshold, // Waiting for threshold to pass
+    SendAlert {
+        // Time to send alert
         minutes_elapsed: i64,
     },
 }
@@ -473,7 +479,8 @@ fn determine_alert_action(
     };
 
     // Try to parse the timestamp and calculate elapsed time
-    let Some(minutes_elapsed) = parse_timestamp_and_get_elapsed_minutes(content, current_time) else {
+    let Some(minutes_elapsed) = parse_timestamp_and_get_elapsed_minutes(content, current_time)
+    else {
         // Invalid timestamp format - treat as no action
         return AlertAction::NoAction;
     };
@@ -497,7 +504,7 @@ fn check_and_send_alerts(
 ) {
     let files = get_alert_file_paths(base_dir, line_id);
     let timestamp_content = fs::read_to_string(&files.timestamp_file).ok();
-    
+
     // Use pure function to determine what action to take
     let action = determine_alert_action(
         current_state,
@@ -506,7 +513,7 @@ fn check_and_send_alerts(
         alert_threshold,
         Local::now(),
     );
-    
+
     // Execute the determined action (this is where I/O happens)
     match action {
         AlertAction::NoAction => {
@@ -582,16 +589,16 @@ fn parse_timestamp_and_get_elapsed_minutes(
     timestamp_str: &str,
     current_time: chrono::DateTime<Local>,
 ) -> Option<i64> {
-    let change_time = chrono::NaiveDateTime::parse_from_str(
-        timestamp_str.trim(),
-        "%Y-%m-%d %H:%M"
-    ).ok()?;
+    let change_time =
+        chrono::NaiveDateTime::parse_from_str(timestamp_str.trim(), "%Y-%m-%d %H:%M").ok()?;
 
     match chrono::TimeZone::from_local_datetime(&Local, &change_time) {
-        chrono::LocalResult::Single(change_datetime) | 
-        chrono::LocalResult::Ambiguous(change_datetime, _) => {
-            Some(current_time.signed_duration_since(change_datetime).num_minutes())
-        }
+        chrono::LocalResult::Single(change_datetime)
+        | chrono::LocalResult::Ambiguous(change_datetime, _) => Some(
+            current_time
+                .signed_duration_since(change_datetime)
+                .num_minutes(),
+        ),
         chrono::LocalResult::None => None,
     }
 }
@@ -613,11 +620,11 @@ mod tests {
     fn test_parse_timestamp_invalid_format() {
         // Test invalid formats
         let invalid_formats = vec![
-            "2026-01-22",           // Missing time
-            "04:05",                // Missing date
-            "2026/01/22 04:05",     // Wrong separator
-            "22-01-2026 04:05",     // Wrong date order
-            "2026-01-22 04:05:30",  // Has seconds (we don't use them)
+            "2026-01-22",          // Missing time
+            "04:05",               // Missing date
+            "2026/01/22 04:05",    // Wrong separator
+            "22-01-2026 04:05",    // Wrong date order
+            "2026-01-22 04:05:30", // Has seconds (we don't use them)
         ];
 
         for invalid in invalid_formats {
@@ -632,10 +639,14 @@ mod tests {
         let now = Local::now();
         let past_time = now - Duration::minutes(30);
         let timestamp_str = past_time.format("%Y-%m-%d %H:%M").to_string();
-        
+
         if let Some(elapsed) = parse_timestamp_and_get_elapsed_minutes(&timestamp_str, now) {
             // Should be approximately 30 minutes (allow small variance for test execution time)
-            assert!(elapsed >= 29 && elapsed <= 31, "Expected ~30 minutes, got {}", elapsed);
+            assert!(
+                (29..=31).contains(&elapsed),
+                "Expected ~30 minutes, got {}",
+                elapsed
+            );
         } else {
             panic!("Should successfully parse timestamp");
         }
@@ -651,14 +662,20 @@ mod tests {
         let past_time = now - Duration::minutes(25);
         let timestamp_str = past_time.format("%Y-%m-%d %H:%M").to_string();
         if let Some(elapsed) = parse_timestamp_and_get_elapsed_minutes(&timestamp_str, now) {
-            assert!(elapsed >= threshold, "25 minutes should exceed 20-minute threshold");
+            assert!(
+                elapsed >= threshold,
+                "25 minutes should exceed 20-minute threshold"
+            );
         }
 
         // 15 minutes ago - should NOT trigger alert
         let recent_time = now - Duration::minutes(15);
         let timestamp_str = recent_time.format("%Y-%m-%d %H:%M").to_string();
         if let Some(elapsed) = parse_timestamp_and_get_elapsed_minutes(&timestamp_str, now) {
-            assert!(elapsed < threshold, "15 minutes should be under 20-minute threshold");
+            assert!(
+                elapsed < threshold,
+                "15 minutes should be under 20-minute threshold"
+            );
         }
     }
 
@@ -667,11 +684,11 @@ mod tests {
         // Ensure writing and reading timestamps produces consistent format
         let now = Local::now();
         let written_format = now.format("%Y-%m-%d %H:%M").to_string();
-        
+
         // Should be able to parse what we write
         let parsed = chrono::NaiveDateTime::parse_from_str(&written_format, "%Y-%m-%d %H:%M");
         assert!(parsed.is_ok());
-        
+
         // Verify format matches expected pattern (YYYY-MM-DD HH:MM)
         assert_eq!(written_format.len(), 16); // "2026-01-22 04:05" is 16 chars
         assert_eq!(written_format.chars().nth(4), Some('-'));
@@ -681,19 +698,22 @@ mod tests {
     }
 
     // Tests for pure alert logic functions
-    
+
     #[test]
     fn test_get_alert_file_paths() {
         let files = get_alert_file_paths("/data/storage", "B");
         assert_eq!(files.state_file, "/data/storage/.transfer_state_B");
-        assert_eq!(files.timestamp_file, "/data/storage/.transfer_state_changed_B");
+        assert_eq!(
+            files.timestamp_file,
+            "/data/storage/.transfer_state_changed_B"
+        );
     }
 
     #[test]
     fn test_create_alert_email_stopped() {
         let now = Local.with_ymd_and_hms(2026, 1, 22, 12, 0, 0).unwrap();
         let email = create_alert_email("B", "IDLE", 0.0, 25, now);
-        
+
         assert_eq!(email.subject, "[Beam Alert] Transfer STOPPED on Line B");
         assert!(email.body.contains("stopped"));
         assert!(email.body.contains("25 minutes"));
@@ -704,7 +724,7 @@ mod tests {
     fn test_create_alert_email_resumed() {
         let now = Local.with_ymd_and_hms(2026, 1, 22, 12, 0, 0).unwrap();
         let email = create_alert_email("A", "ACTIVE", 125.5, 30, now);
-        
+
         assert_eq!(email.subject, "[Beam Alert] Transfer RESUMED on Line A");
         assert!(email.body.contains("resumed"));
         assert!(email.body.contains("30 minutes"));
@@ -738,7 +758,12 @@ mod tests {
         let now = Local.with_ymd_and_hms(2026, 1, 22, 12, 0, 0).unwrap();
         let timestamp = "2026-01-22 11:30"; // 30 minutes ago
         let action = determine_alert_action("IDLE", "IDLE", Some(timestamp), 20, now);
-        assert_eq!(action, AlertAction::SendAlert { minutes_elapsed: 30 });
+        assert_eq!(
+            action,
+            AlertAction::SendAlert {
+                minutes_elapsed: 30
+            }
+        );
     }
 
     #[test]
@@ -746,7 +771,12 @@ mod tests {
         let now = Local.with_ymd_and_hms(2026, 1, 22, 12, 20, 0).unwrap();
         let timestamp = "2026-01-22 12:00"; // Exactly 20 minutes ago
         let action = determine_alert_action("IDLE", "IDLE", Some(timestamp), 20, now);
-        assert_eq!(action, AlertAction::SendAlert { minutes_elapsed: 20 });
+        assert_eq!(
+            action,
+            AlertAction::SendAlert {
+                minutes_elapsed: 20
+            }
+        );
     }
 
     #[test]
@@ -775,9 +805,9 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    use std::path::Path;
     use chrono::TimeZone;
-    
+    use std::path::Path;
+
     /// Helper to create a test environment with temp directory
     /// Returns the TempDir (must keep alive) and base_dir path string
     fn setup_test_env() -> (tempfile::TempDir, String) {
@@ -785,214 +815,278 @@ mod integration_tests {
         let base_dir = temp_dir.path().to_str().unwrap().to_string();
         (temp_dir, base_dir)
     }
-    
+
     #[test]
     fn test_no_action_when_state_unchanged() {
         let (_temp, base_dir) = setup_test_env();
-        
+
         // Setup: Create initial IDLE state
         let state_file = format!("{}/.transfer_state_B", base_dir);
         fs::write(&state_file, "IDLE").unwrap();
-        
+
         // Action: Call with unchanged state (IDLE -> IDLE)
         check_and_send_alerts(&base_dir, "B", "IDLE", "IDLE", 0.0, 20);
-        
+
         // Assert: No timestamp file created
         let timestamp_file = format!("{}/.transfer_state_changed_B", base_dir);
-        assert!(!Path::new(&timestamp_file).exists(), "Timestamp file should not exist for NoAction");
-        
+        assert!(
+            !Path::new(&timestamp_file).exists(),
+            "Timestamp file should not exist for NoAction"
+        );
+
         // Assert: No interruption log created
         let log_file = format!("{}/.transfer_interruptions_B", base_dir);
-        assert!(!Path::new(&log_file).exists(), "Log file should not exist for NoAction");
-        
+        assert!(
+            !Path::new(&log_file).exists(),
+            "Log file should not exist for NoAction"
+        );
+
         // Assert: State file updated
         let content = fs::read_to_string(&state_file).unwrap();
         assert_eq!(content, "IDLE");
     }
-    
+
     #[test]
     fn test_creates_timestamp_on_state_change() {
         let (_temp, base_dir) = setup_test_env();
-        
+
         // Setup: Start with IDLE state
         let state_file = format!("{}/.transfer_state_B", base_dir);
         fs::write(&state_file, "IDLE").unwrap();
-        
+
         // Action: State changes to ACTIVE
         check_and_send_alerts(&base_dir, "B", "ACTIVE", "IDLE", 125.5, 20);
-        
+
         // Assert: Timestamp file was created
         let timestamp_file = format!("{}/.transfer_state_changed_B", base_dir);
-        assert!(Path::new(&timestamp_file).exists(), "Timestamp file must be created on state change");
-        
+        assert!(
+            Path::new(&timestamp_file).exists(),
+            "Timestamp file must be created on state change"
+        );
+
         // Assert: Timestamp content is valid format
         let content = fs::read_to_string(&timestamp_file).unwrap();
         let parsed = chrono::NaiveDateTime::parse_from_str(content.trim(), "%Y-%m-%d %H:%M");
-        assert!(parsed.is_ok(), "Timestamp should be in correct format: {}", content);
-        
+        assert!(
+            parsed.is_ok(),
+            "Timestamp should be in correct format: {}",
+            content
+        );
+
         // Assert: State file updated
         let state_content = fs::read_to_string(&state_file).unwrap();
         assert_eq!(state_content, "ACTIVE");
-        
+
         // Assert: Interruption log was created
         let log_file = format!("{}/.transfer_interruptions_B", base_dir);
-        assert!(Path::new(&log_file).exists(), "Interruption log must be created on state change");
+        assert!(
+            Path::new(&log_file).exists(),
+            "Interruption log must be created on state change"
+        );
     }
-    
+
     #[test]
     fn test_log_state_change_format() {
         let (_temp, base_dir) = setup_test_env();
-        
+
         // Setup
         let state_file = format!("{}/.transfer_state_B", base_dir);
         fs::write(&state_file, "ACTIVE").unwrap();
-        
+
         // Action: State change from ACTIVE to IDLE
         check_and_send_alerts(&base_dir, "B", "IDLE", "ACTIVE", 0.0, 20);
-        
+
         // Assert: Log file has correct CSV format
         let log_file = format!("{}/.transfer_interruptions_B", base_dir);
         let log_content = fs::read_to_string(&log_file).unwrap();
-        
+
         // Should have format: timestamp,old_state,new_state,speed
         // Example: 2026-01-22 10:15:30,ACTIVE,IDLE,0.0
         let lines: Vec<&str> = log_content.lines().collect();
         assert_eq!(lines.len(), 1, "Should have exactly one log entry");
-        
+
         let parts: Vec<&str> = lines[0].split(',').collect();
-        assert_eq!(parts.len(), 4, "CSV should have 4 fields: timestamp,old,new,speed");
+        assert_eq!(
+            parts.len(),
+            4,
+            "CSV should have 4 fields: timestamp,old,new,speed"
+        );
         assert_eq!(parts[1], "ACTIVE", "Old state should be ACTIVE");
         assert_eq!(parts[2], "IDLE", "New state should be IDLE");
         assert_eq!(parts[3], "0.0", "Speed should be 0.0");
-        
+
         // Verify timestamp format (YYYY-MM-DD HH:MM:SS)
-        assert!(parts[0].contains('-') && parts[0].contains(':'), 
-                "Timestamp should contain date and time separators");
+        assert!(
+            parts[0].contains('-') && parts[0].contains(':'),
+            "Timestamp should contain date and time separators"
+        );
     }
-    
+
     #[test]
     fn test_waits_for_threshold() {
         let (_temp, base_dir) = setup_test_env();
-        
+
         // Setup: Create timestamp from 10 minutes ago (under 20 min threshold)
         let timestamp_file = format!("{}/.transfer_state_changed_B", base_dir);
         let past_time = Local::now() - chrono::Duration::minutes(10);
-        fs::write(&timestamp_file, past_time.format("%Y-%m-%d %H:%M").to_string()).unwrap();
-        
+        fs::write(
+            &timestamp_file,
+            past_time.format("%Y-%m-%d %H:%M").to_string(),
+        )
+        .unwrap();
+
         let state_file = format!("{}/.transfer_state_B", base_dir);
         fs::write(&state_file, "IDLE").unwrap();
-        
+
         // Action: Run with same state (IDLE -> IDLE)
         check_and_send_alerts(&base_dir, "B", "IDLE", "IDLE", 0.0, 20);
-        
+
         // Assert: Timestamp file still exists (not deleted, waiting for threshold)
-        assert!(Path::new(&timestamp_file).exists(), "Timestamp file should remain while waiting");
-        
+        assert!(
+            Path::new(&timestamp_file).exists(),
+            "Timestamp file should remain while waiting"
+        );
+
         // Assert: Original timestamp unchanged
         let content = fs::read_to_string(&timestamp_file).unwrap();
         let expected = past_time.format("%Y-%m-%d %H:%M").to_string();
-        assert_eq!(content.trim(), expected.trim(), "Timestamp should not be modified");
+        assert_eq!(
+            content.trim(),
+            expected.trim(),
+            "Timestamp should not be modified"
+        );
     }
-    
+
     #[test]
     fn test_sends_alert_after_threshold() {
         let (_temp, base_dir) = setup_test_env();
-        
+
         // Setup: Create timestamp from 25 minutes ago (over 20 min threshold)
         let timestamp_file = format!("{}/.transfer_state_changed_B", base_dir);
         let past_time = Local::now() - chrono::Duration::minutes(25);
-        fs::write(&timestamp_file, past_time.format("%Y-%m-%d %H:%M").to_string()).unwrap();
-        
+        fs::write(
+            &timestamp_file,
+            past_time.format("%Y-%m-%d %H:%M").to_string(),
+        )
+        .unwrap();
+
         let state_file = format!("{}/.transfer_state_B", base_dir);
         fs::write(&state_file, "IDLE").unwrap();
-        
+
         // Action: Run with same state (IDLE -> IDLE)
         // Note: Email won't actually send without .email_config, but file operations still happen
         check_and_send_alerts(&base_dir, "B", "IDLE", "IDLE", 0.0, 20);
-        
+
         // Assert: Timestamp file was DELETED after alert
-        assert!(!Path::new(&timestamp_file).exists(), 
-                "Timestamp file must be deleted after sending alert");
-        
+        assert!(
+            !Path::new(&timestamp_file).exists(),
+            "Timestamp file must be deleted after sending alert"
+        );
+
         // Assert: State file still updated
         let state_content = fs::read_to_string(&state_file).unwrap();
         assert_eq!(state_content, "IDLE");
     }
-    
+
     #[test]
     fn test_state_change_overrides_pending_alert() {
         let (_temp, base_dir) = setup_test_env();
-        
+
         // Setup: Create old timestamp from 25 minutes ago (over threshold)
         let timestamp_file = format!("{}/.transfer_state_changed_B", base_dir);
         let old_time = Local::now() - chrono::Duration::minutes(25);
-        fs::write(&timestamp_file, old_time.format("%Y-%m-%d %H:%M").to_string()).unwrap();
+        fs::write(
+            &timestamp_file,
+            old_time.format("%Y-%m-%d %H:%M").to_string(),
+        )
+        .unwrap();
         let old_timestamp_content = fs::read_to_string(&timestamp_file).unwrap();
-        
+
         let state_file = format!("{}/.transfer_state_B", base_dir);
         fs::write(&state_file, "IDLE").unwrap();
-        
+
         // Action: State changes (IDLE -> ACTIVE) - should override pending alert
         check_and_send_alerts(&base_dir, "B", "ACTIVE", "IDLE", 120.0, 20);
-        
+
         // Assert: Timestamp file still exists but with NEW timestamp
-        assert!(Path::new(&timestamp_file).exists(), "Timestamp file should be recreated");
+        assert!(
+            Path::new(&timestamp_file).exists(),
+            "Timestamp file should be recreated"
+        );
         let new_timestamp_content = fs::read_to_string(&timestamp_file).unwrap();
-        assert_ne!(old_timestamp_content.trim(), new_timestamp_content.trim(), 
-                   "Timestamp should be updated to current time");
-        
+        assert_ne!(
+            old_timestamp_content.trim(),
+            new_timestamp_content.trim(),
+            "Timestamp should be updated to current time"
+        );
+
         // Assert: New timestamp is recent (within last minute)
-        let parsed = chrono::NaiveDateTime::parse_from_str(new_timestamp_content.trim(), "%Y-%m-%d %H:%M").unwrap();
+        let parsed =
+            chrono::NaiveDateTime::parse_from_str(new_timestamp_content.trim(), "%Y-%m-%d %H:%M")
+                .unwrap();
         let as_datetime = Local.from_local_datetime(&parsed).unwrap();
-        let elapsed = Local::now().signed_duration_since(as_datetime).num_minutes();
-        assert!(elapsed <= 1, "New timestamp should be very recent, got {} minutes", elapsed);
+        let elapsed = Local::now()
+            .signed_duration_since(as_datetime)
+            .num_minutes();
+        assert!(
+            elapsed <= 1,
+            "New timestamp should be very recent, got {} minutes",
+            elapsed
+        );
     }
-    
+
     #[test]
     fn test_handles_corrupted_timestamp_file() {
         let (_temp, base_dir) = setup_test_env();
-        
+
         // Setup: Create timestamp file with invalid content
         let timestamp_file = format!("{}/.transfer_state_changed_B", base_dir);
         fs::write(&timestamp_file, "CORRUPTED###DATA!!!").unwrap();
-        
+
         let state_file = format!("{}/.transfer_state_B", base_dir);
         fs::write(&state_file, "IDLE").unwrap();
-        
+
         // Action: Should handle gracefully (NoAction due to parse failure)
         check_and_send_alerts(&base_dir, "B", "IDLE", "IDLE", 0.0, 20);
-        
+
         // Assert: Doesn't panic or crash
         // Assert: Timestamp file still exists (not cleaned up on parse error)
-        assert!(Path::new(&timestamp_file).exists(), "Corrupted file should remain");
-        
+        assert!(
+            Path::new(&timestamp_file).exists(),
+            "Corrupted file should remain"
+        );
+
         // Assert: State file still updated normally
         let state_content = fs::read_to_string(&state_file).unwrap();
         assert_eq!(state_content, "IDLE");
     }
-    
+
     #[test]
     fn test_multiple_state_changes_log_accumulation() {
         let (_temp, base_dir) = setup_test_env();
-        
+
         let state_file = format!("{}/.transfer_state_B", base_dir);
-        
+
         // Change 1: IDLE -> ACTIVE
         fs::write(&state_file, "IDLE").unwrap();
         check_and_send_alerts(&base_dir, "B", "ACTIVE", "IDLE", 100.0, 20);
-        
+
         // Change 2: ACTIVE -> IDLE
         check_and_send_alerts(&base_dir, "B", "IDLE", "ACTIVE", 0.0, 20);
-        
+
         // Change 3: IDLE -> ACTIVE again
         check_and_send_alerts(&base_dir, "B", "ACTIVE", "IDLE", 150.0, 20);
-        
+
         // Assert: Log file has 3 entries
         let log_file = format!("{}/.transfer_interruptions_B", base_dir);
         let log_content = fs::read_to_string(&log_file).unwrap();
         let lines: Vec<&str> = log_content.lines().collect();
-        assert_eq!(lines.len(), 3, "Should have 3 log entries for 3 state changes");
-        
+        assert_eq!(
+            lines.len(),
+            3,
+            "Should have 3 log entries for 3 state changes"
+        );
+
         // Assert: Each entry is properly formatted
         for line in lines {
             let parts: Vec<&str> = line.split(',').collect();

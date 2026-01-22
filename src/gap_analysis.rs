@@ -22,7 +22,12 @@ pub fn analyze_gaps(files: &[FileEntry], line_id: &str) {
 
     for missing in &report.missing_weekdays {
         let day_name = missing.format("%A").to_string(); // Monday, Tuesday, etc.
-        println!("{} {} ({}) - Archive not found", "⚠️".yellow(), missing, day_name);
+        println!(
+            "{} {} ({}) - Archive not found",
+            "⚠️".yellow(),
+            missing,
+            day_name
+        );
     }
 
     println!(

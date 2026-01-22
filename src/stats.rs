@@ -60,7 +60,7 @@ pub fn calculate_integrity_stats(
     tiny_threshold: u64,
 ) -> Option<IntegrityStats> {
     use chrono::Local;
-    
+
     if files.is_empty() {
         return None;
     }
@@ -68,7 +68,7 @@ pub fn calculate_integrity_stats(
     // Filter out recently modified files (last 5 minutes) to exclude in-progress transfers
     let now = Local::now();
     let threshold_minutes = 5;
-    
+
     let stable_files: Vec<&FileEntry> = files
         .iter()
         .filter(|f| {
@@ -222,14 +222,7 @@ pub fn print_integrity_table(stats_opt: &Option<IntegrityStats>) {
     let mut table = Table::new();
     table.load_preset(comfy_table::presets::UTF8_HORIZONTAL_ONLY);
     table.set_header(vec![
-        "Filename",
-        "Total",
-        "Empty",
-        "Bad",
-        "Min",
-        "Max",
-        "Median",
-        "StdDev",
+        "Filename", "Total", "Empty", "Bad", "Min", "Max", "Median", "StdDev",
     ]);
 
     for row in &stats.rows {
@@ -415,10 +408,10 @@ pub fn print_anomalies(report: &Option<AnomalyReport>) {
 #[must_use]
 pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesReport> {
     use chrono::Local;
-    
+
     let now = Local::now();
     let threshold_minutes = 5;
-    
+
     // Filter bad files, excluding recently modified ones (last 5 minutes)
     let bad_files: Vec<&FileEntry> = files
         .iter()
@@ -426,13 +419,13 @@ pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesR
             if f.is_valid {
                 return false;
             }
-            
+
             // Exclude files modified in the last 5 minutes (likely in-progress transfers)
             let age_minutes = now.signed_duration_since(f.modified).num_minutes();
             age_minutes >= threshold_minutes
         })
         .collect();
-    
+
     if bad_files.is_empty() {
         return None;
     }
@@ -441,18 +434,25 @@ pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesR
 
     // Group by parent_dir (folder)
     let mut by_folder: HashMap<String, Vec<BadFile>> = HashMap::new();
-    
-    for file in bad_files.iter().take(50) {  // Limit to 50
+
+    for file in bad_files.iter().take(50) {
+        // Limit to 50
         let relative_path = format!("Line {}/{}/{}", line_id, file.parent_dir, file.name);
-        let reason = file.invalid_reason.clone().unwrap_or_else(|| "Unknown error".to_string());
-        
+        let reason = file
+            .invalid_reason
+            .clone()
+            .unwrap_or_else(|| "Unknown error".to_string());
+
         let bad_file = BadFile {
             relative_path,
             size: file.size,
             reason,
         };
-        
-        by_folder.entry(file.parent_dir.clone()).or_default().push(bad_file);
+
+        by_folder
+            .entry(file.parent_dir.clone())
+            .or_default()
+            .push(bad_file);
     }
 
     // Convert to sorted vec
@@ -468,15 +468,22 @@ pub fn collect_bad_files(files: &[FileEntry], line_id: &str) -> Option<BadFilesR
 pub fn print_bad_files(report: &Option<BadFilesReport>) {
     if let Some(r) = report {
         println!("\n{}", "=== Bad ZIP Files ===".cyan());
-        
-        let displayed_count = r.files_by_folder.iter().map(|(_, files)| files.len()).sum::<usize>();
-        
+
+        let displayed_count = r
+            .files_by_folder
+            .iter()
+            .map(|(_, files)| files.len())
+            .sum::<usize>();
+
         if r.total_count > displayed_count {
-            println!("Found {} bad ZIP files, here are the first {}:", r.total_count, displayed_count);
+            println!(
+                "Found {} bad ZIP files, here are the first {}:",
+                r.total_count, displayed_count
+            );
         } else {
             println!("Found {} bad ZIP files:", r.total_count);
         }
-        
+
         for (folder, files) in &r.files_by_folder {
             println!("\n{}", folder.yellow());
             for file in files {
@@ -487,4 +494,3 @@ pub fn print_bad_files(report: &Option<BadFilesReport>) {
         }
     }
 }
-
