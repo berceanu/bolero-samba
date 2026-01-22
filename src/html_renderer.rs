@@ -42,13 +42,17 @@ pub fn render_dashboard(line_a_report: &AuditReport, line_b_report: &AuditReport
     // Line B
     html.push_str("    <div class=\"column\">\n");
     html.push_str("      <h2>Line B</h2>\n");
+    html.push_str("      <div class=\"column-content\">\n");
     html.push_str(&render_full_report(line_b_report));
+    html.push_str("      </div>\n");
     html.push_str("    </div>\n");
 
     // Line A
     html.push_str("    <div class=\"column\">\n");
     html.push_str("      <h2>Line A</h2>\n");
+    html.push_str("      <div class=\"column-content\">\n");
     html.push_str(&render_full_report(line_a_report));
+    html.push_str("      </div>\n");
     html.push_str("    </div>\n");
 
     html.push_str("  </div>\n");
@@ -66,12 +70,13 @@ pub fn render_dashboard(line_a_report: &AuditReport, line_b_report: &AuditReport
 
 fn render_styles() -> String {
     r#"  <style>
-    body { background-color: #0c0c0c; color: #d1d1d1; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; margin: 0; }
-    h1 { text-align: center; margin-bottom: 5px; color: #4CAF50; font-size: 2.2em; letter-spacing: 1px; }
-    h3 { text-align: center; font-size: 0.9em; color: #777; margin-bottom: 40px; font-weight: normal; text-transform: uppercase; letter-spacing: 2px; }
-    .container { display: flex; gap: 20px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
-    .column { flex: 1; min-width: 300px; max-width: 1000px; border: 1px solid #333; padding: 25px; background-color: #161616; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    h2 { text-align: center; color: #fff; border-bottom: 1px solid #333; padding-bottom: 15px; margin-top: 0; font-size: 1.5em; letter-spacing: 1px; }
+    body { background-color: #0c0c0c; color: #d1d1d1; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+    h1 { text-align: center; margin: 15px 0 5px 0; color: #4CAF50; font-size: 2.2em; letter-spacing: 1px; }
+    h3 { text-align: center; font-size: 0.9em; color: #777; margin: 0 0 15px 0; font-weight: normal; text-transform: uppercase; letter-spacing: 2px; }
+    .container { display: flex; gap: 20px; justify-content: center; align-items: stretch; flex: 1; min-height: 0; overflow: hidden; padding: 0 20px 15px 20px; }
+    .column { flex: 1; min-width: 300px; max-width: 1000px; border: 1px solid #333; padding: 0; background-color: #161616; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; min-height: 0; }
+    h2 { text-align: center; color: #fff; border-bottom: 1px solid #333; padding: 20px 25px 15px 25px; margin: 0; font-size: 1.5em; letter-spacing: 1px; background-color: #161616; flex-shrink: 0; }
+    .column-content { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 25px; }
     .section { margin: 20px 0; overflow-x: auto; }
     .section-title { color: #4CAF50; font-size: 1.1em; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 12px; }
     .green { color: #4CAF50; }
@@ -91,14 +96,24 @@ fn render_styles() -> String {
     progress::-webkit-progress-bar { background-color: #2a2a2a; border-radius: 4px; }
     progress::-webkit-progress-value { background: linear-gradient(90deg, #4CAF50, #8BC34A); border-radius: 4px; }
     progress::-moz-progress-bar { background: linear-gradient(90deg, #4CAF50, #8BC34A); border-radius: 4px; }
-    .footer { text-align: center; margin-top: 40px; padding: 30px 20px; color: #666; font-size: 0.9em; }
-    .footer svg { display: block; margin: 15px auto 0; opacity: 0.8; transition: opacity 0.3s; }
+    .footer { text-align: center; padding: 10px 20px; color: #666; font-size: 0.9em; flex-shrink: 0; background-color: #0c0c0c; }
+    .footer svg { display: block; margin: 10px auto 0; opacity: 0.8; transition: opacity 0.3s; }
     .footer svg:hover { opacity: 1; }
-    @media (max-width: 768px) {
-      body { padding: 10px; }
-      h1 { font-size: 1.5em; }
-      .column { padding: 15px; min-width: 100%; }
-      .data-table { font-size: 0.75em; min-width: 500px; }
+    @media (max-width: 600px) {
+      body { height: auto; overflow-y: auto; }
+      h1 { font-size: 1.8em; margin: 10px 0 5px 0; }
+      h3 { font-size: 0.85em; margin: 0 0 10px 0; }
+      .container { flex-direction: column; padding: 0 10px 10px 10px; gap: 15px; overflow: visible; }
+      .column { min-width: 100%; max-width: 100%; }
+      .column-content { padding: 20px; }
+      .data-table { font-size: 0.8em; min-width: 500px; }
+      .footer { padding: 15px 10px; }
+    }
+    @media (min-width: 601px) and (max-width: 900px) {
+      h1 { font-size: 1.9em; }
+      .container { padding: 0 15px 15px 15px; gap: 15px; }
+      .column-content { padding: 20px; }
+      .data-table { font-size: 0.85em; }
     }
   </style>
 "#.to_string()
@@ -326,10 +341,23 @@ fn render_estimates_section(report: &AuditReport) -> String {
             est.weekdays_remaining
         ));
 
-        html.push_str(&format!(
-            r#"<p><strong>Current Progress:</strong> Copying <span class="green">{}</span></p>"#,
-            est.current_copy_date.format("%Y-%m-%d")
-        ));
+        // Display status based on transfer state
+        if let Some(copying_date) = est.currently_copying {
+            html.push_str(&format!(
+                r#"<p><strong>Currently Copying:</strong> <span class="green">{}</span></p>"#,
+                copying_date.format("%Y-%m-%d")
+            ));
+        } else if let Some(last_date) = est.last_completed {
+            html.push_str(&format!(
+                r#"<p><strong>Last Archive:</strong> <span class="green">{}</span></p>"#,
+                last_date.format("%Y-%m-%d")
+            ));
+        } else {
+            html.push_str(&format!(
+                r#"<p><strong>Status:</strong> <span class="yellow">Ready to start</span> (first date: {})</p>"#,
+                est.start_date.format("%Y-%m-%d")
+            ));
+        }
 
         // Format full project date range
         let date_range = format!(

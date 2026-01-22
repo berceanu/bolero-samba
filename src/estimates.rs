@@ -7,7 +7,8 @@ use std::process::Command;
 
 #[derive(Debug)]
 pub struct EstimatesReport {
-    pub current_copy_date: NaiveDate,
+    pub currently_copying: Option<NaiveDate>,
+    pub last_completed: Option<NaiveDate>,
     pub weekdays_remaining: usize,
     pub weekdays_completed: u32,
     pub total_weekdays: u32,
@@ -25,7 +26,7 @@ pub struct EstimatesReport {
 pub fn calculate_estimates(
     search_dir: &str,
     files: &[FileEntry],
-    all_files: &[FileEntry],
+    _all_files: &[FileEntry],
     growing_dirs: &HashSet<String>,
     line_id: &str,
     _size_t2: u64,
@@ -36,17 +37,24 @@ pub fn calculate_estimates(
     let config_path = format!("{}/Transfer.ps1", base_dir);
     let (start_date, end_date) = parse_config(&config_path)?;
 
-    // 2. Identify Current Copy Date
-    // If there's a growing directory, that's what we're copying right now
-    let current_copy_date = if let Some(growing_dir) = growing_dirs.iter().next() {
-        extract_date_from_dirname(growing_dir, line_id).unwrap_or_else(|| {
-            // Fallback: check all_files for latest date
-            get_last_completed_date(all_files, line_id).unwrap_or(start_date)
-        })
+    // 2. Determine active copying state and last completed date
+    let is_active = speed_bps > 0 && !growing_dirs.is_empty();
+    
+    // What's being copied RIGHT NOW (only when active)
+    let currently_copying = if is_active {
+        growing_dirs
+            .iter()
+            .next()
+            .and_then(|dir| extract_date_from_dirname(dir, line_id))
     } else {
-        // No active copy, use last completed from filtered files
-        get_last_completed_date(files, line_id).unwrap_or(start_date)
+        None
     };
+    
+    // What's the last completed date (from existing folders)
+    let last_completed = get_last_completed_date(files, line_id);
+    
+    // For progress calculations, use last_completed or start_date
+    let progress_reference_date = last_completed.unwrap_or(start_date);
 
     // 3. Calculate median daily size (more robust than mean for outliers)
     // Group files by parent_dir and calculate size per folder
@@ -85,10 +93,10 @@ pub fn calculate_estimates(
         }
     }
 
-    // 5. Calculate weekdays completed (from start to current)
+    // 5. Calculate weekdays completed (from start to last completed)
     let mut weekdays_completed = 0;
     let mut iter_date = start_date;
-    while iter_date < current_copy_date {
+    while iter_date < progress_reference_date {
         let dow = iter_date.weekday().number_from_monday();
         if dow <= 5 {
             weekdays_completed += 1;
@@ -101,7 +109,7 @@ pub fn calculate_estimates(
 
     // 6. Calculate Remaining
     let mut weekdays_remaining = 0;
-    if let Some(mut iter_date) = current_copy_date.succ_opt() {
+    if let Some(mut iter_date) = progress_reference_date.succ_opt() {
         while iter_date <= end_date {
             let dow = iter_date.weekday().number_from_monday();
             if dow <= 5 {
@@ -138,7 +146,8 @@ pub fn calculate_estimates(
     };
 
     Some(EstimatesReport {
-        current_copy_date,
+        currently_copying,
+        last_completed,
         weekdays_remaining,
         weekdays_completed,
         total_weekdays,
@@ -174,10 +183,24 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
             progress_pct
         );
 
-        println!(
-            "Current Progress:  Copying {}",
-            r.current_copy_date.format("%Y-%m-%d").to_string().green()
-        );
+        // Display status based on transfer state
+        if let Some(copying_date) = r.currently_copying {
+            println!(
+                "Currently Copying: {}",
+                copying_date.format("%Y-%m-%d").to_string().green()
+            );
+        } else if let Some(last_date) = r.last_completed {
+            println!(
+                "Last Archive:      {}",
+                last_date.format("%Y-%m-%d").to_string().green()
+            );
+        } else {
+            println!(
+                "Status:            {} (first date: {})",
+                "Ready to start".yellow(),
+                r.start_date.format("%Y-%m-%d")
+            );
+        }
 
         // Format full project date range
         let date_range = format!(
