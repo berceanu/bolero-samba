@@ -69,7 +69,7 @@ fn render_styles() -> String {
     h1 { text-align: center; margin-bottom: 5px; color: #4CAF50; font-size: 2.2em; letter-spacing: 1px; }
     h3 { text-align: center; font-size: 0.9em; color: #777; margin-bottom: 40px; font-weight: normal; text-transform: uppercase; letter-spacing: 2px; }
     .container { display: flex; gap: 20px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
-    .column { flex: 1; min-width: 300px; max-width: 1000px; border: 1px solid #333; padding: 25px; background-color: #161616; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow-x: auto; }
+    .column { flex: 1; min-width: 300px; max-width: 1000px; border: 1px solid #333; padding: 25px; background-color: #161616; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     h2 { text-align: center; color: #fff; border-bottom: 1px solid #333; padding-bottom: 15px; margin-top: 0; font-size: 1.5em; letter-spacing: 1px; }
     .section { margin: 20px 0; overflow-x: auto; }
     .section-title { color: #4CAF50; font-size: 1.1em; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 12px; }
