@@ -169,7 +169,6 @@ pub fn print_estimates(report: &Option<EstimatesReport>) {
             "Current Progress:  Copying {}",
             r.current_copy_date.format("%Y-%m-%d").to_string().green()
         );
-        println!("Daily Median:      {} GiB/day", r.daily_average_gib);
         
         // Format full project date range
         let date_range = format!(

@@ -222,7 +222,7 @@ pub fn print_integrity_table(stats_opt: &Option<IntegrityStats>) {
     let mut table = Table::new();
     table.load_preset(comfy_table::presets::UTF8_HORIZONTAL_ONLY);
     table.set_header(vec![
-        "Device Type",
+        "Filename",
         "Total",
         "Empty",
         "Bad",
@@ -367,7 +367,7 @@ pub fn print_anomalies(report: &Option<AnomalyReport>) {
     };
 
     println!(
-        "Median Daily Size: {}",
+        "Median Size: {}",
         human_bytes::human_bytes(r.median_daily_size as f64)
     );
     println!("-------------------------------------------------------------------------------");
