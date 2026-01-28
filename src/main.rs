@@ -2,6 +2,7 @@ mod email;
 mod estimates;
 mod gap_analysis;
 mod html_renderer;
+mod ranking;
 mod scanner;
 mod stats;
 mod system_io;
@@ -66,6 +67,14 @@ struct Args {
     /// Read start and end dates from PowerShell script. Conflicts with --start-date and --end-date.
     #[arg(long, value_name = "SCRIPT_PATH", conflicts_with_all = ["start_date", "end_date"])]
     read_dates_from: Option<String>,
+
+    /// Generate monthly performance ranking
+    #[arg(long)]
+    rank_months: bool,
+
+    /// Generate combined monthly ranking for both lines (ignores line_id)
+    #[arg(long)]
+    rank_months_combined: bool,
 }
 
 /// Resolve date range from CLI arguments with priority: CLI flags > Script > Defaults
@@ -133,6 +142,16 @@ fn main() {
             args.alert_threshold,
             args.max_bad_per_archive,
             args.anomaly_threshold,
+        );
+        return;
+    }
+
+    // Combined ranking mode - analyze both lines and show combined rankings
+    if args.rank_months_combined {
+        generate_combined_ranking(
+            &args.base_dir,
+            args.anomaly_threshold,
+            &args,
         );
         return;
     }
@@ -295,6 +314,21 @@ fn main() {
     let bad_files_report =
         stats::collect_bad_files(&analysis_files, &line_id, args.max_bad_per_archive);
 
+    // Monthly ranking (optional)
+    let monthly_ranking = if args.rank_months {
+        Some(ranking::calculate_monthly_rankings(
+            &analysis_files,
+            Some(&gap_report),
+            anomalies_report.as_ref(),
+            &line_id,
+            start_date,
+            end_date,
+            tiny_threshold,
+        ))
+    } else {
+        None
+    };
+
     // Output based on mode
     if args.html {
         let report = html_renderer::AuditReport {
@@ -367,6 +401,11 @@ fn main() {
         let bad_files_report =
             stats::collect_bad_files(&analysis_files, &line_id, args.max_bad_per_archive);
         stats::print_bad_files(&bad_files_report, args.max_bad_per_archive);
+
+        if let Some(ref ranking_report) = monthly_ranking {
+            println!("\n{}", "=== Monthly Performance Ranking ===".cyan());
+            ranking::print_monthly_rankings(ranking_report);
+        }
 
         println!("\n{}", "=== Audit Complete ===".cyan());
     }
@@ -453,6 +492,120 @@ fn generate_dashboard(
     info!("Dashboard written to: {}", output_file);
     debug!("Removing lock file");
     fs::remove_file(lockfile).ok();
+}
+
+fn generate_combined_ranking(base_dir: &str, anomaly_threshold: f64, args: &Args) {
+    let (start_date, end_date) = resolve_date_range(args);
+    let tiny_threshold = 1000;
+
+    println!(
+        "{}",
+        format!(
+            "=== Combined Monthly Ranking: {} ===",
+            Local::now().format("%Y-%m-%d %H:%M")
+        )
+        .cyan()
+    );
+    println!("Scanning both lines (this takes ~20 seconds)...\n");
+
+    // Collect data for both lines in parallel
+    let (line_a_data, line_b_data) = thread::scope(|s| {
+        let handle_a = s.spawn(|| collect_ranking_data("A", base_dir, anomaly_threshold, start_date, end_date, tiny_threshold));
+        let handle_b = s.spawn(|| collect_ranking_data("B", base_dir, anomaly_threshold, start_date, end_date, tiny_threshold));
+        (handle_a.join().unwrap(), handle_b.join().unwrap())
+    });
+
+    // Calculate rankings for each line
+    let ranking_a = ranking::calculate_monthly_rankings(
+        &line_a_data.files,
+        Some(&line_a_data.gap_report),
+        line_a_data.anomaly_report.as_ref(),
+        "A",
+        start_date,
+        end_date,
+        tiny_threshold,
+    );
+
+    let ranking_b = ranking::calculate_monthly_rankings(
+        &line_b_data.files,
+        Some(&line_b_data.gap_report),
+        line_b_data.anomaly_report.as_ref(),
+        "B",
+        start_date,
+        end_date,
+        tiny_threshold,
+    );
+
+    // Combine and print
+    let combined = ranking::combine_rankings(&ranking_a, &ranking_b);
+    ranking::print_combined_rankings(&combined);
+
+    // Also print individual line summaries
+    println!("\n{}", "=== Line A Rankings ===".cyan());
+    ranking::print_monthly_rankings(&ranking_a);
+
+    println!("\n{}", "=== Line B Rankings ===".cyan());
+    ranking::print_monthly_rankings(&ranking_b);
+
+    println!("\n{}", "=== Ranking Complete ===".cyan());
+}
+
+/// Data needed for ranking calculation (lighter than full AuditReport)
+struct RankingData {
+    files: Vec<types::FileEntry>,
+    gap_report: gap_analysis::GapReport,
+    anomaly_report: Option<stats::AnomalyReport>,
+}
+
+fn collect_ranking_data(
+    line_id: &str,
+    base_dir: &str,
+    anomaly_threshold: f64,
+    _start_date: NaiveDate,
+    _end_date: NaiveDate,
+    _tiny_threshold: u64,
+) -> RankingData {
+    let search_dir = format!("{}/Line {}", base_dir, line_id);
+
+    let (_size_t1, dirs_t1) = scanner::get_total_and_per_dir_sizes(&search_dir);
+    thread::sleep(Duration::from_secs(10));
+    let (_, dirs_t2) = scanner::get_total_and_per_dir_sizes(&search_dir);
+
+    let files = scanner::scan_files(&search_dir);
+
+    // Identify growing directories
+    let growing_dirs: HashSet<String> = dirs_t1
+        .keys()
+        .filter(|dir| {
+            let size_t1 = dirs_t1.get(*dir).unwrap_or(&0);
+            let size_t2 = dirs_t2.get(*dir).unwrap_or(&0);
+            size_t2 > size_t1
+        })
+        .cloned()
+        .collect();
+
+    // Filter out files from growing directories
+    let analysis_files: Vec<_> = files
+        .iter()
+        .filter(|f| !growing_dirs.contains(&f.parent_dir))
+        .cloned()
+        .collect();
+
+    let gap_report = gap_analysis::find_gaps(&files, line_id);
+
+    // Filter dirs for anomaly detection
+    let stable_dirs: HashMap<String, u64> = dirs_t2
+        .iter()
+        .filter(|(dir, _)| !growing_dirs.contains(*dir))
+        .map(|(k, v)| (k.clone(), *v))
+        .collect();
+    let anomaly_report = stats::calculate_anomalies(&stable_dirs, anomaly_threshold);
+
+    RankingData {
+        files: analysis_files,
+        gap_report,
+        anomaly_report,
+    }
 }
 
 fn acquire_lock(lockfile: &str) -> Result<fs::File, String> {
